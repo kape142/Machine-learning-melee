@@ -140,6 +140,7 @@ class MeleeBot:
 
     def perform_action(self, action):
         if self.state[5] != melee.enums.Action.STANDING:
+            self.controller.empty_input()
             return -1
         if action == 1:
             self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
