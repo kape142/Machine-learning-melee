@@ -69,7 +69,7 @@ class MeleeBot:
         #   UNPLUGGED is pretty obvious what it means
         self.opponent_type = melee.enums.ControllerType.UNPLUGGED
         if self.args.live:
-            self.opponent_type = melee.enums.ControllerType.GCN_ADAPTER
+            self.opponent_type = melee.enums.ControllerType.STANDARD
 
         # Create our Dolphin object. This will be the primary object that we will interface with
         self.dolphin = melee.dolphin.Dolphin(ai_port=self.args.port,
@@ -140,10 +140,10 @@ class MeleeBot:
 
     def perform_action(self, action):
         if action == 1:
-            self.controller.tilt_analog(melee.enums.Button.Button_C, 0, 0.5)
+            self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
             return
         if action == 2:
-            self.controller.tilt_analog(melee.enums.Button.Button_C, 1, 0.5)
+            self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
             return
         if action == 3:
             self.controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
@@ -174,11 +174,11 @@ class MeleeBot:
 
     def action_to_number(self, action, facing):
         en = melee.enums.Action
-        if action == en.STANDING or action == en.TURNING:
+        if action == en.STANDING.value or action == en.TURNING.value:
             return 0
-        if en.FSMASH_HIGH < action < en.FSMASH_LOW:
+        if en.FSMASH_HIGH.value < action < en.FSMASH_LOW.value:
             return 1+facing
-        if en.SHIELD_START < action < en.SHIELD_REFLECT:
+        if en.SHIELD_START.value < action < en.SHIELD_REFLECT.value:
             return 3
         return 4
 
