@@ -139,7 +139,12 @@ class MeleeBot:
         return np.array(self.state), reward, done, {}
 
     def perform_action(self, action):
-        if self.state[5] != melee.enums.Action.STANDING:
+        en = melee.enums.Action
+        ac = self.state[5]
+        if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value and 1 <= action <= 2:
+            self.controller.empty_input()
+            return -1
+        if en.FSMASH_HIGH.value <= action <= en.FSMASH_LOW.value and action == 3:
             self.controller.empty_input()
             return -1
         if action == 1:
@@ -156,9 +161,9 @@ class MeleeBot:
 
     def get_reward(self, state, prevstate):
         reward = 0
-        reward -= max(state[0]-prevstate[0], 0)
-        reward -= (prevstate[1]-state[1])*400
-        reward += max(state[4]-prevstate[4], 0)
+        reward -= max(state[0] - prevstate[0], 0)
+        reward -= (prevstate[1] - state[1]) * 400
+        reward += max(state[4] - prevstate[4], 0)
         reward += (prevstate[5] - state[5]) * 400
         return reward
 
@@ -180,9 +185,9 @@ class MeleeBot:
         en = melee.enums.Action
         if action == en.STANDING.value or action == en.TURNING.value:
             return 0
-        if en.FSMASH_HIGH.value < action < en.FSMASH_LOW.value:
-            return 1+facing
-        if en.SHIELD_START.value < action < en.SHIELD_REFLECT.value:
+        if en.FSMASH_HIGH.value <= action <= en.FSMASH_LOW.value:
+            return 1 + facing
+        if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value:
             return 3
         return 4
 
