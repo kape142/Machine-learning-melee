@@ -138,6 +138,9 @@ class MeleeBot:
         done = False
         return np.array(self.state), reward, done, {}
 
+    '''        
+    if self.state[5] != melee.enums.Action.STANDING:
+            return -1'''
     def perform_action(self, action):
         if self.state[5] != melee.enums.Action.STANDING:
             return -1
