@@ -101,7 +101,7 @@ class MeleeBot:
         self.gamestate.step()
         if self.gamestate.processingtime * 1000 > 12:
             print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.")
-
+        reward = 0
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.args.framerecord:
@@ -110,7 +110,7 @@ class MeleeBot:
             # This line will get hit once per frame, so here is where you read
             #   in the gamestate and decide what buttons to push on the controller
             self.state = self.update_state(self.gamestate.ai_state, self.gamestate.opponent_state)
-            self.perform_action(action)
+            reward += self.perform_action(action)
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FOX,
@@ -139,16 +139,19 @@ class MeleeBot:
         return np.array(self.state), reward, done, {}
 
     def perform_action(self, action):
+        if self.state[5] != melee.enums.Action.STANDING:
+            return -1
         if action == 1:
             self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
-            return
+            return 0
         if action == 2:
             self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
-            return
+            return 0
         if action == 3:
             self.controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
-            return
+            return 0
         self.controller.empty_input()
+        return 0
 
     def get_reward(self, state, prevstate):
         reward = 0
