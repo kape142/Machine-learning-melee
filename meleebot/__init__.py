@@ -8,7 +8,7 @@ from gym import spaces
 
 
 class MeleeBot:
-    def __init__(self, render=True, iso_path=None):
+    def __init__(self, render=False, iso_path=None):
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
             # self
@@ -69,7 +69,7 @@ class MeleeBot:
         #   UNPLUGGED is pretty obvious what it means
         self.opponent_type = melee.enums.ControllerType.UNPLUGGED
         if self.args.live:
-            self.opponent_type = melee.enums.ControllerType.STANDARD
+            self.opponent_type = melee.enums.ControllerType.GCN_ADAPTER
 
         # Create our Dolphin object. This will be the primary object that we will interface with
         self.dolphin = melee.dolphin.Dolphin(ai_port=self.args.port,
