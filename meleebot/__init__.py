@@ -3,11 +3,12 @@ import numpy as np
 import argparse
 import signal
 import sys
+import time
 from gym import spaces
 
 
 class MeleeBot:
-    def __init__(self, render=True):
+    def __init__(self, render=True, iso_path=None):
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
             # self
@@ -82,7 +83,8 @@ class MeleeBot:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         # Run dolphin and render the output
-        self.dolphin.run(render=render)
+        self.dolphin.run(render=render, iso_path=iso_path)
+        time.sleep(10)  # burde sjekke om den er ferdig i stedet
 
         # Plug our controller in
         #   Due to how named pipes work, this has to come AFTER running dolphin

@@ -468,7 +468,7 @@ class GameState:
         except socket.timeout:
             return None
         # Strip the null terminator, pad with zeros, then convert to bytes
-        return data[0], binascii.unhexlify(data[1].strip('\x00').zfill(8))
+        return data[0], binascii.unhexlify(data[1].strip('\x00').replace(",", "").zfill(8))
 
 """Represents the state of a single player"""
 class PlayerState:
