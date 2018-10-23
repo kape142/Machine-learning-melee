@@ -136,7 +136,11 @@ class MeleeBot:
 
         reward = self.get_reward(self.state, prevstate)
         done = False
-        return np.array(self.state), reward, done, {}
+        aibutton = self.controller.current
+        info = "I am currently %s, my damage is % and i have % lives left \n" \
+               " My current controller looks like this: %s" %\
+               (self.state_to_action_name(self.state[3]), self.state[1], self.state[2], aibutton)
+        return np.array(self.state), reward, done, info
 
     def perform_action(self, action):
         en = melee.enums.Action
@@ -180,6 +184,17 @@ class MeleeBot:
         state[6] = self.action_to_number(opp_list[5], opp_list[4])
         state[7] = opp_list[0]
         return state
+
+    def state_to_action_name(self, action):
+        if action == 0:
+            return "standing still"
+        if action == 1:
+            return "kicking left"
+        if action == 2:
+            return "kicking right"
+        if action == 3:
+            return "shielding"
+        return "doing something weird"
 
     def action_to_number(self, action, facing):
         en = melee.enums.Action

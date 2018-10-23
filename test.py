@@ -8,7 +8,8 @@ print("Observation space: ", bot.observation_space.shape)
 
 while True:
     action = bot.action_space.sample()
-    obv, reward, done, _ = bot.step(action)
-    print(obv)
+    obv, reward, done, info = bot.step(action)
+    # print(obv)
+    print(info)
     rewardtot += reward
     print(rewardtot)
