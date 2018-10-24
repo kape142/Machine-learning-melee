@@ -22,7 +22,7 @@ class GameState:
     distance = 0.0
     sock = None
     processingtime = 0.0
-    frametimestamp = 0.0
+    frametimestamp = time.time()
 
     def __init__(self, dolphin):
         #Dict with key of address, and value of (name, player)

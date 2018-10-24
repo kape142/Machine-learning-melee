@@ -52,7 +52,7 @@ class MeleeBot:
         self.parser.add_argument('--debug', '-d', action='store_true',
                                  help='Debug mode. Creates a CSV of all game state')
         self.parser.add_argument('--framerecord', '-r', default=False, action='store_true',
-                                 help='(DEVELOPMENT ONLY) Records frame data from the match, stores into framedata.csv.')
+                                 help='(DEVELOPMENT ONLY) Records frame data from the match, stores into framedata.cs~/v.')
 
         self.args = self.parser.parse_args()
 
@@ -84,9 +84,8 @@ class MeleeBot:
 
         # Run dolphin and render the output
         self.dolphin.run(render=render, iso_path=iso_path)
-        time.sleep(10)  # burde sjekke om den er ferdig i stedet
 
-        # Plug our controller in
+        # Plug our controller inargs
         #   Due to how named pipes work, this has to come AFTER running dolphin
         #   NOTE: If you're loading a movie file, don't connect the controller,
         #   dolphin will hang waiting for input and never receive it
@@ -113,7 +112,7 @@ class MeleeBot:
             reward += self.perform_action(action)
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
-            melee.menuhelper.choosecharacter(character=melee.enums.Character.FOX,
+            melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
                                              gamestate=self.gamestate,
                                              port=self.args.port,
                                              opponent_port=self.args.opponent,
@@ -136,10 +135,8 @@ class MeleeBot:
 
         reward = self.get_reward(self.state, prevstate)
         done = False
-        aibutton = self.controller.current
-        info = "I am currently %s, my damage is % and i have % lives left \n" \
-               " My current controller looks like this: %s" %\
-               (self.state_to_action_name(self.state[3]), self.state[1], self.state[2], aibutton)
+        info = "I am currently %s, my damage is %.0f and i have %.0f lives left" %\
+               (melee.enums.Action(self.gamestate.ai_state.tolist()[5]).name, self.state[1], self.state[2])
         return np.array(self.state), reward, done, info
 
     def perform_action(self, action):
@@ -196,6 +193,9 @@ class MeleeBot:
             return "shielding"
         return "doing something weird"
 
+    def action_to_enum_name(self, action):
+        return next(name for name, value in vars(melee.enums.Action).items() if value == action)
+
     def action_to_number(self, action, facing):
         en = melee.enums.Action
         if action == en.STANDING.value or action == en.TURNING.value:
@@ -204,6 +204,7 @@ class MeleeBot:
             return 1 + facing
         if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value:
             return 3
+        print(action)
         return 4
 
     def reset(self):
