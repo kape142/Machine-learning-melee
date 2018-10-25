@@ -109,7 +109,7 @@ class MeleeBot:
             # This line will get hit once per frame, so here is where you read
             #   in the gamestate and decide what buttons to push on the controller
             self.state = self.update_state(self.gamestate.ai_state, self.gamestate.opponent_state)
-            reward += self.perform_action(action)
+            reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5])
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -135,17 +135,18 @@ class MeleeBot:
 
         reward = self.get_reward(self.state, prevstate)
         done = False
-        info = "I am currently %s, my damage is %.0f and i have %.0f lives left" %\
+        info = "I am currently %s, my damage is %.0f and i have %.0f lives left" % \
                (melee.enums.Action(self.gamestate.ai_state.tolist()[5]).name, self.state[1], self.state[2])
         return np.array(self.state), reward, done, info
 
-    def perform_action(self, action):
+    def perform_action(self, action, anim_state):
         en = melee.enums.Action
-        ac = self.state[5]
-        if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value and 1 <= action <= 2:
+        if en(anim_state) != en.STANDING and 1 <= action <= 2:
+            print(en(anim_state).name)
             self.controller.empty_input()
             return -1
-        if en.FSMASH_HIGH.value <= action <= en.FSMASH_LOW.value and action == 3:
+        if en(anim_state) != en.STANDING and action == 3:
+            print(en(anim_state).name)
             self.controller.empty_input()
             return -1
         if action == 1:
