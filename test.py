@@ -13,6 +13,7 @@ try:
         action2 = bot.action_space.sample()
         obv, reward, done, info = bot.step(action, action2)
         print(info)
+        print(obv)
         rewardtot += reward
         # print(rewardtot)
 except Exception as e:

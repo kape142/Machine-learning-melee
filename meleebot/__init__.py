@@ -11,33 +11,22 @@ class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
-            # self
-            999,  # percent damage
-            4,  # stocks
-            5,  # current action
-            100,  # x-pos
-            # opponent
-            999,  # percent damage
-            4,  # stocks
             5,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            100,  # x-pos
+            5,  # current opponent action
+            20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
         ])
 
         low = np.array([
             # self
-            0,  # percent damage
-            0,  # stocks
             0,  # current action
-            -100,  # x-pos
-            # opponent
-            0,  # percent damage
-            0,  # stocks
-            0,  # current action
-            -100,  # x-pos
+            0,  # current opponent action
+            0,  # distance
         ])
-        self.observation_space = spaces.Box(low, high, dtype=np.float32)
+        self.observation_space = spaces.Box(low, high, dtype=np.int)
         self.state = None
         self.state2 = None
+        self.rewardstate = None
+        self.rewardstate2 = None
         self.chain = None
 
         self.parser = argparse.ArgumentParser(description='Example of libmelee in action')
@@ -96,12 +85,11 @@ class MeleeBot:
             self.controller2.connect()
 
     def step(self, action, action2=None):
-        print(self.dolphin.process)
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         assert action2 is None or self.action_space.contains(action2), "%r (%s) invalid" % (action, type(action))
         assert action2 is not None or self.args.live
-        prevstate = self.state
-        prevstate2 = self.state2
+        prevrewardstate = self.rewardstate
+        prevrewardstate2 = self.rewardstate2
 
         # "step" to the next frame
         self.gamestate.step()
@@ -110,6 +98,8 @@ class MeleeBot:
         reward = 0
         reward2 = 0
         done = False
+        ai_list = self.gamestate.ai_state.tolist()
+        opp_list = self.gamestate.opponent_state.tolist()
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.args.framerecord:
@@ -117,8 +107,11 @@ class MeleeBot:
             # XXX: This is where your AI does all of its stuff!
             # This line will get hit once per frame, so here is where you read
             #   in the gamestate and decide what buttons to push on the controller
-            self.state = self.update_state(self.gamestate.ai_state, self.gamestate.opponent_state)
-            self.state2 = self.update_state(self.gamestate.opponent_state, self.gamestate.ai_state)
+            self.state = self.update_state(ai_list, opp_list)
+            self.rewardstate = self.update_rewardstate(ai_list, opp_list)
+            if not self.args.live:
+                self.state2 = self.update_state(opp_list, ai_list)
+                self.rewardstate2 = self.update_rewardstate(opp_list, ai_list)
 
             reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5], self.controller)
             if action2 is not None:
@@ -159,21 +152,23 @@ class MeleeBot:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward(self.state, prevstate)
+        reward += self.get_reward(self.rewardstate, prevrewardstate)
         if not self.args.live:
-            reward2 += self.get_reward(self.state2, prevstate2)
-        info = "I am currently %s, my damage is %.0f and i have %.0f lives left" % \
-               (melee.enums.Action(self.gamestate.ai_state.tolist()[5]).name, self.state[1], self.state[2])
+            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2)
+        info = "I am currently doing %s, which corresponds to action #%0.f, " \
+               "my opponent is doing %s, which corresponds to action #%0.f, " \
+               "and the relative distance to my opponent is %.0f" % \
+               (melee.enums.Action(ai_list[5]).name, self.state[0],
+                melee.enums.Action(opp_list[5]).name, self.state[1],
+                self.state[2])
         return [self.state, self.state2], [reward, reward2], done, info
 
     def perform_action(self, action, anim_state, controller):
         en = melee.enums.Action
         if en(anim_state) != en.STANDING and 1 <= action <= 2:
-            print(en(anim_state).name)
             controller.empty_input()
             return -1
         if en(anim_state) != en.STANDING and action == 3:
-            print(en(anim_state).name)
             controller.empty_input()
             return -1
         if action == 1:
@@ -192,23 +187,33 @@ class MeleeBot:
         reward = 0
         reward -= max(state[0] - prevstate[0], 0)
         reward -= (prevstate[1] - state[1]) * 400
-        reward += max(state[4] - prevstate[4], 0)
-        reward += (prevstate[5] - state[5]) * 400
+        reward += max(state[2] - prevstate[2], 0)
+        reward += (prevstate[3] - state[3]) * 400
         return reward
 
-    def update_state(self, ai_state=melee.gamestate.PlayerState(), opponent_state=melee.gamestate.PlayerState()):
-        state = np.zeros(8)
-        ai_list = ai_state.tolist()
-        opp_list = opponent_state.tolist()
+    def update_state(self, ai_list, opp_list):
+        state = np.zeros(3)
+        state[0] = self.action_to_number(ai_list[5], ai_list[4])
+        state[1] = self.action_to_number(opp_list[5], opp_list[4])
+        state[2] = self.discretize_distance(ai_list[0], opp_list[0])
+        return state
+
+    def update_rewardstate(self, ai_list, opp_list):
+        state = np.zeros(4)
         state[0] = ai_list[2]
         state[1] = ai_list[3]
-        state[2] = self.action_to_number(ai_list[5], ai_list[4])
-        state[3] = ai_list[0]
-        state[4] = opp_list[2]
-        state[5] = opp_list[3]
-        state[6] = self.action_to_number(opp_list[5], opp_list[4])
-        state[7] = opp_list[0]
+        state[2] = opp_list[2]
+        state[3] = opp_list[3]
         return state
+
+    def discretize_distance(self, xpos_self, xpos_opp):
+        distance = xpos_self - xpos_opp
+        absdist = abs(distance)
+        sigdist = np.sign(distance)
+        if absdist>100:
+            return 10+10*sigdist
+        sqdist = np.floor(np.sqrt(absdist))
+        return 10+sqdist*sigdist
 
     def state_to_action_name(self, action):
         if action == 0:
@@ -232,35 +237,14 @@ class MeleeBot:
             return 1 + facing
         if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value:
             return 3
-        print(action)
         return 4
 
     def reset(self):
-        self.state = np.array([
-            # self
-            0,  # percent damage
-            0,  # stocks
-            0,  # current action
-            0,  # x-pos
-            # opponent
-            0,  # percent damage
-            0,  # stocks
-            0,  # current action
-            0,  # x-pos
-        ])  # må kanskje byttes ut med å hente fra dolphin?
-        # må sikkert gjøre MYE mer
-        self.state2 = np.array([
-            # self
-            0,  # percent damage
-            0,  # stocks
-            0,  # current action
-            0,  # x-pos
-            # opponent
-            0,  # percent damage
-            0,  # stocks
-            0,  # current action
-            0,  # x-pos
-        ])
+        self.state = np.zeros(3)
+        self.state2 = np.zeros(3)
+        self.rewardstate = np.zeros(4)
+        self.rewardstate2 = np.zeros(4)
+        return self.state, self.state2
 
     def check_port(self, value):
         ivalue = int(value)
