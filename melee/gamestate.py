@@ -71,6 +71,7 @@ class GameState:
         except OSError:
             pass
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.sock.settimeout(10)
         self.sock.bind(path)
 
     """Return a list representation of the current gamestate
@@ -117,6 +118,8 @@ class GameState:
        Run this in a loop until it returns returns True, then press your buttons,
        wash, rinse, repeat."""
     def update(self, mem_update):
+        if mem_update is None:
+            raise Exception("dolphin is not responding")
         label = self.locations[mem_update[0]][0]
         player_int = int(self.locations[mem_update[0]][1])
         if label == "frame":

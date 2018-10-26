@@ -116,7 +116,8 @@ class Dolphin:
             config.write(dolphinfile)
 
     """Run dolphin-emu"""
-    def run(self, render=True, iso_path=None, movie_path=None, dolphin_executable_path=None, dolphin_config_path=None):
+    def run(self, render=True, iso_path=None, movie_path=None, dolphin_executable_path=None, dolphin_config_path=None,
+            batch=None, confirm=None):
         if dolphin_executable_path is not None:
             command = [dolphin_executable_path]
         else:
@@ -134,6 +135,11 @@ class Dolphin:
         if dolphin_config_path is not None:
             command.append("-u")
             command.append(dolphin_config_path)
+        if batch is not None:
+            command.append("-b")
+        if confirm is not None:
+            command.append("-c")
+            command.append(confirm)
         self.process = subprocess.Popen(command)
 
     """Terminate the dolphin process"""
