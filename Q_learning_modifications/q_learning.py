@@ -16,7 +16,7 @@ class Qlearning:
         # else:
         #     self.q_table = np.zeros([self.env.observation_space.n, self.env.action_space.n])
         #self.q_table = np.zeros([env.observation_space.shape.n, env.action_space.n])
-        self.q_table = np.zeros([5, 5, 20, self.env.action_space.n])
+        self.q_table = np.zeros([5, 6, 5, 6, self.env.action_space.n])
         print("Shape of the Q-table:", self.q_table.shape)
 
         # Parameters for the Q alogrithm
@@ -43,7 +43,7 @@ class Qlearning:
                 action = np.argmax(self.q_table[state])
 
             next_state, reward, done, _ = self.env.step(action)
-            next_state = next_state.astype(int).reshape(-1,1).tolist()  # finnes sikker en bedre måte.
+            next_state = next_state.astype(int).reshape(-1,1).tolist()  # finnes sikker en bedre måte, burde gjøres med state og i reseten
             next_max = np.max(self.q_table[next_state])
 
             self.q_table[state, action] = self.q_table[state, action] + self.alpha*(reward + self.gamma*next_max - self.q_table[state, action])

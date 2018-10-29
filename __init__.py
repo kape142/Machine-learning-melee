@@ -6,28 +6,39 @@ import sys
 import time
 from gym import spaces
 
+CheckGameStatus = False
 
 class MeleeBot:
-    def __init__(self, render=False, iso_path=None, player_control=True):
+    def __init__(self, render=False, iso_path=None):
         self.CheckGameStatus = False
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
+            # self
+            #999,  # percent damage
+            4,  # stocks
+            5,  # current action
+            #10,  # x-pos
+            # opponent
+            #999,  # percent damage
+            4,  # stocks
             5,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            5,  # current opponent action
-            20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
+            #10,  # x-pos
         ])
 
         low = np.array([
             # self
+            #0,  # percent damage
+            0,  # stocks
             0,  # current action
-            0,  # current opponent action
-            0,  # distance
+            #-10,  # x-pos
+            # opponent
+            #0,  # percent damage
+            0,  # stocks
+            0,  # current action
+            #-10,  # x-pos
         ])
-        self.observation_space = spaces.Box(low, high, dtype=np.int)
+        self.observation_space = spaces.Box(low, high, dtype=np.float32)
         self.state = None
-        self.state2 = None
-        self.rewardstate = None
-        self.rewardstate2 = None
         self.chain = None
 
         self.parser = argparse.ArgumentParser(description='Example of libmelee in action')
@@ -39,7 +50,7 @@ class MeleeBot:
                                  default=1)
         self.parser.add_argument('--live', '-l',
                                  help='The opponent is playing live with a GCN Adapter',
-                                 default=player_control)
+                                 default=True)
         self.parser.add_argument('--debug', '-d', action='store_true',
                                  help='Debug mode. Creates a CSV of all game state')
         self.parser.add_argument('--framerecord', '-r', default=False, action='store_true',
@@ -58,7 +69,7 @@ class MeleeBot:
         #       for named pipe (bot) input
         #   GCN_ADAPTER will use your WiiU adapter for live human-controlled play
         #   UNPLUGGED is pretty obvious what it means
-        self.opponent_type = melee.enums.ControllerType.STANDARD
+        self.opponent_type = melee.enums.ControllerType.UNPLUGGED
         if self.args.live:
             self.opponent_type = melee.enums.ControllerType.GCN_ADAPTER
 
@@ -71,36 +82,28 @@ class MeleeBot:
         self.gamestate = melee.gamestate.GameState(self.dolphin)
         # Create our Controller object that we can press buttons on
         self.controller = melee.controller.Controller(port=self.args.port, dolphin=self.dolphin)
-        self.controller2 = melee.controller.Controller(port=self.args.opponent, dolphin=self.dolphin)
         signal.signal(signal.SIGINT, self.signal_handler)
 
         # Run dolphin and render the output
-        self.dolphin.run(render=render, iso_path=iso_path, batch=True)
+        self.dolphin.run(render=render, iso_path=iso_path)
 
         # Plug our controller inargs
         #   Due to how named pipes work, this has to come AFTER running dolphin
         #   NOTE: If you're loading a movie file, don't connect the controller,
         #   dolphin will hang waiting for input and never receive it
         self.controller.connect()
-        if not player_control:
-            self.controller2.connect()
 
-    def step(self, action, action2=None):
+    def step(self, action):
+        global CheckGameStatus
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
-        assert action2 is None or self.action_space.contains(action2), "%r (%s) invalid" % (action, type(action))
-        assert action2 is not None or self.args.live
-        prevrewardstate = self.rewardstate
-        prevrewardstate2 = self.rewardstate2
+
+        prevstate = self.state
 
         # "step" to the next frame
         self.gamestate.step()
         if self.gamestate.processingtime * 1000 > 12:
             print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.")
         reward = 0
-        reward2 = 0
-        done = False
-        ai_list = self.gamestate.ai_state.tolist()
-        opp_list = self.gamestate.opponent_state.tolist()
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.CheckGameStatus == False:
@@ -111,15 +114,8 @@ class MeleeBot:
             # XXX: This is where your AI does all of its stuff!
             # This line will get hit once per frame, so here is where you read
             #   in the gamestate and decide what buttons to push on the controller
-            self.state = self.update_state(ai_list, opp_list)
-            self.rewardstate = self.update_rewardstate(ai_list, opp_list)
-            if not self.args.live:
-                self.state2 = self.update_state(opp_list, ai_list)
-                self.rewardstate2 = self.update_rewardstate(opp_list, ai_list)
-
-            reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5], self.controller)
-            if action2 is not None:
-                reward2 += self.perform_action(action2, self.gamestate.opponent_state.tolist()[5], self.controller2)
+            self.state = self.update_state(self.gamestate.ai_state, self.gamestate.opponent_state)
+            reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5])
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -129,95 +125,70 @@ class MeleeBot:
                                              controller=self.controller,
                                              swag=True,
                                              start=True)
-            if not self.args.live:
-                melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
-                                                 gamestate=self.gamestate,
-                                                 port=self.args.opponent,
-                                                 opponent_port=self.args.port,
-                                                 controller=self.controller2,
-                                                 swag=True,
-                                                 start=True)
         # If we're at the postgame scores screen, spam START
         elif self.gamestate.menu_state == melee.enums.Menu.POSTGAME_SCORES:
             melee.menuhelper.skippostgame(controller=self.controller)
-            done=True
-            if not self.args.live:
-                melee.menuhelper.skippostgame(controller=self.controller2)
-        # If we're at the stage select screen, choose a stageopponent
+        # If we're at the stage select screen, choose a stage
         elif self.gamestate.menu_state == melee.enums.Menu.STAGE_SELECT:
             melee.menuhelper.choosestage(stage=melee.enums.Stage.FINAL_DESTINATION,
                                          gamestate=self.gamestate,
                                          controller=self.controller)
         # Flush any button presses queued up
         self.controller.flush()
-        if not self.args.live:
-            self.controller2.flush()
         if self.log:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward(self.rewardstate, prevrewardstate)
-        if not self.args.live:
-            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2)
-        info = "I am currently doing %s, which corresponds to action #%0.f, " \
-               "my opponent is doing %s, which corresponds to action #%0.f, " \
-               "and the relative distance to my opponent is %.0f" % \
-               (melee.enums.Action(ai_list[5]).name, self.state[0],
-                melee.enums.Action(opp_list[5]).name, self.state[1],
-                self.state[2])
-        return [self.state, self.state2], [reward, reward2], done, info
+        reward = self.get_reward(self.state, prevstate)
+        done = False
+        info = "I am currently %s, my damage is %.0f and i have %.0f lives left" % \
+               (melee.enums.Action(self.gamestate.ai_state.tolist()[5]).name, self.state[1], self.state[2])
+        return np.array(self.state), reward, done, info
 
-    def perform_action(self, action, anim_state, controller):
+    def perform_action(self, action, anim_state):
         en = melee.enums.Action
         if en(anim_state) != en.STANDING and 1 <= action <= 2:
-            controller.empty_input()
+            #print(en(anim_state).name)
+            self.controller.empty_input()
             return -1
         if en(anim_state) != en.STANDING and action == 3:
-            controller.empty_input()
+            #print(en(anim_state).name)
+            self.controller.empty_input()
             return -1
         if action == 1:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
+            self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
             return 0
         if action == 2:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
+            self.controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
             return 0
         if action == 3:
-            controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
+            self.controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
             return 0
-        controller.empty_input()
+        self.controller.empty_input()
         return 0
 
     def get_reward(self, state, prevstate):
         reward = 0
-        reward -= max(state[0] - prevstate[0], 0)
-        reward -= (prevstate[1] - state[1]) * 400
-        reward += max(state[2] - prevstate[2], 0)
-        reward += (prevstate[3] - state[3]) * 400
+        #reward -= max(state[0] - prevstate[0], 0)
+        reward -= (prevstate[0] - state[0]) * 400
+        # reward += max(state[4] - prevstate[4], 0)
+        # reward += (prevstate[5] - state[5]) * 400
         return reward
 
-    def update_state(self, ai_list, opp_list):
-        state = np.zeros(3)
-        state[0] = self.action_to_number(ai_list[5], ai_list[4])
-        state[1] = self.action_to_number(opp_list[5], opp_list[4])
-        state[2] = self.discretize_distance(ai_list[0], opp_list[0])
-        return state
-
-    def update_rewardstate(self, ai_list, opp_list):
+    def update_state(self, ai_state=melee.gamestate.PlayerState(), opponent_state=melee.gamestate.PlayerState()):
         state = np.zeros(4)
-        state[0] = ai_list[2]
-        state[1] = ai_list[3]
-        state[2] = opp_list[2]
-        state[3] = opp_list[3]
+        ai_list = ai_state.tolist()
+        opp_list = opponent_state.tolist()
+        state[0] = ai_list[3]   #stock
+        state[1] = self.action_to_number(ai_list[5], ai_list[4])   # current action
+        #state[2] = ai_list[0]   # x position
+
+        state[2] = opp_list[3]
+        state[3] = self.action_to_number(opp_list[5], opp_list[4])
+        #state[5] = opp_list[0]
         return state
 
-    def discretize_distance(self, xpos_self, xpos_opp):
-        distance = xpos_self - xpos_opp
-        absdist = abs(distance)
-        sigdist = np.sign(distance)
-        if absdist>100:
-            return 10+10*sigdist
-        sqdist = np.floor(np.sqrt(absdist))
-        return 10+sqdist*sigdist
+
 
     def state_to_action_name(self, action):
         if action == 0:
@@ -241,14 +212,24 @@ class MeleeBot:
             return 1 + facing
         if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value:
             return 3
+        #print(action)
         return 4
 
     def reset(self):
-        self.state = np.zeros(3)
-        self.state2 = np.zeros(3)
-        self.rewardstate = np.zeros(4)
-        self.rewardstate2 = np.zeros(4)
-        return self.state, self.state2
+        self.state = np.array([
+            # self
+            #0,  # percent damage
+            0,  # stocks
+            0,  # current action
+            #0,  # x-pos
+            # opponent
+            #0,  # percent damage
+            0,  # stocks
+            0,  # current action
+            #0,  # x-pos
+        ])  # må kanskje byttes ut med å hente fra dolphin?
+        # må sikkert gjøre MYE mer
+        return self.state
 
     def check_port(self, value):
         ivalue = int(value)
