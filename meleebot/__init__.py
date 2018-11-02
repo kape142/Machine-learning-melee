@@ -169,12 +169,12 @@ class MeleeBot:
 
     def perform_action(self, action, anim_state, controller):
         en = melee.enums.Action
-        if en(anim_state) != en.STANDING and 1 <= action <= 2:
-            controller.empty_input()
-            return -1
-        if en(anim_state) != en.STANDING and action == 3:
-            controller.empty_input()
-            return -1
+        # if en(anim_state) != en.STANDING and 1 <= action <= 2:
+        #     controller.empty_input()
+        #     return 0
+        # if en(anim_state) != en.STANDING and action == 3:
+        #     controller.empty_input()
+        #     return 0
         if action == 1:
             controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
             return 0
@@ -190,9 +190,9 @@ class MeleeBot:
     def get_reward(self, state, prevstate):
         reward = 0
         reward -= max(state[0] - prevstate[0], 0)
-        reward -= (prevstate[1] - state[1]) * 400
+        reward -= (prevstate[1] - state[1]) * 100
         reward += max(state[2] - prevstate[2], 0)
-        reward += (prevstate[3] - state[3]) * 400
+        reward += (prevstate[3] - state[3]) * 200
         return reward
 
     def update_state(self, ai_list, opp_list):
@@ -248,7 +248,7 @@ class MeleeBot:
         self.state2 = np.zeros(3)
         self.rewardstate = np.zeros(4)
         self.rewardstate2 = np.zeros(4)
-        return self.state, self.state2
+        return [self.state, self.state2]
 
     def check_port(self, value):
         ivalue = int(value)

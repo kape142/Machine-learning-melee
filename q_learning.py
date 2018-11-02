@@ -30,7 +30,6 @@ class Qlearning:
         print(self.q_table)
 
         # Want the states on the from [(x,y,z),(x,y,z)] with integeres
-        state = list(state)
         for idx, states in enumerate(state):
             state[idx] = tuple(states.astype(int))
 
@@ -63,14 +62,14 @@ class Qlearning:
         #self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-0.1*self.epsilon)
         self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*self.epsilon)
         # Lagrer Q_tabellen
-        np.save('q_table_new.npy', self.q_table)
-        print("Q table saved to file 'q_table.npy'")
+        np.save('q_table_v3.npy', self.q_table)
+        print("Q table saved to file 'q_table_v3.npy'")
 
 
 
 if __name__ == '__main__':
     bot = None
-    epsilon = 0.1
+    epsilon = 1.0
     load_old_qtable = True
     try:
         for i in range(10000):
@@ -79,10 +78,10 @@ if __name__ == '__main__':
             # print("Action space: ", bot.action_space.n)
             # print("Observation space: ", bot.observation_space.shape)
             # print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")
-            ql = Qlearning(0.1,epsilon, bot)
+            ql = Qlearning(0.5,epsilon, bot)
 
             if load_old_qtable:
-                ql.q_table = np.load('q_table.npy')
+                ql.q_table = np.load('q_table_v3.npy')
 
             bot.reset()
             while bot.CheckGameStatus == False:

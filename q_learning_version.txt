@@ -1,0 +1,48 @@
+q_table.npy:
+#######################################################
+Trening over en natt, hvor koden i perform_action:
+
+# if en(anim_state) != en.STANDING and 1 <= action <= 2:
+#     controller.empty_input()
+#     return -1
+# if en(anim_state) != en.STANDING and action == 3:
+#     controller.empty_input()
+#     return -1
+
+er inkludert. Ca 250 iterasjoner med trening
+#######################################################
+
+q_table_v2.npy:
+#######################################################
+reward -= max(state[0] - prevstate[0], 0)
+reward -= (prevstate[1] - state[1]) * 2000
+reward += max(state[2] - prevstate[2], 0)
+reward += (prevstate[3] - state[3]) * 2000
+
+# if en(anim_state) != en.STANDING and 1 <= action <= 2:
+#     controller.empty_input()
+#     return 0
+# if en(anim_state) != en.STANDING and action == 3:
+#     controller.empty_input()
+#     return 0
+DETTE ER MED I perform_action METODEN
+#######################################################
+
+q_table_v3.npy:
+#######################################################
+def get_reward(self, state, prevstate):
+    reward = 0
+    reward -= max(state[0] - prevstate[0], 0)
+    reward -= (prevstate[1] - state[1]) * 100
+    reward += max(state[2] - prevstate[2], 0)
+    reward += (prevstate[3] - state[3]) * 200
+    return reward
+
+HER VAR DETTE KOMMENTERT UT AV perform_action metoden!
+  # if en(anim_state) != en.STANDING and 1 <= action <= 2:
+  #     controller.empty_input()
+  #     return 0
+  # if en(anim_state) != en.STANDING and action == 3:
+  #     controller.empty_input()
+  #     return 0
+#######################################################
