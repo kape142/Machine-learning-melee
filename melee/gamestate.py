@@ -71,7 +71,7 @@ class GameState:
         except OSError:
             pass
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        self.sock.settimeout(10)
+        self.sock.settimeout(15)
         self.sock.bind(path)
 
     """Return a list representation of the current gamestate

@@ -74,7 +74,7 @@ if __name__ == '__main__':
     try:
         for i in range(10000):
             print("Iteration: ", i+1)
-            bot = MeleeBot(iso_path="/home/espen/Documents/TTAT3025-ML/LibMelee/Machine-learning-melee/melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
+            bot = MeleeBot(iso_path="melee.iso", player_control=True)  # change to your path to melee v1.02 NTSC ISO
             # print("Action space: ", bot.action_space.n)
             # print("Observation space: ", bot.observation_space.shape)
             # print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")
