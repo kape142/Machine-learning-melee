@@ -8,7 +8,7 @@ class Qlearning:
     def __init__(self, learning_rate, epsilon, environment):
         self.env = environment
         # Initialize the q table with shape = shape_q_table
-        shape_q_table = (self.env.high - self.env.low + 1).tolist()
+        shape_q_table = (self.env.observation_space.high - self.env.observation_space.low + 1).tolist()
         shape_q_table.append(self.env.action_space.n)
         self.q_table = np.zeros(shape_q_table)
         print("Shape of the Q-table:", self.q_table.shape)
