@@ -66,7 +66,6 @@ class Qlearning:
         print("Q table saved to file 'q_table_v3.npy'")
 
 
-
 if __name__ == '__main__':
     bot = None
     epsilon = 1.0
