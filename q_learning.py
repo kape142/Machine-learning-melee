@@ -33,7 +33,7 @@ class Qlearning:
         epochs, reward = 0, 0
         done = False
         actions = {"action1":0, "action2":0}
-        print(self.q_table)
+        #print(self.q_table)
 
         # Want the states on the from [(x,y,z),(x,y,z)] with integeres
         for idx, states in enumerate(state):
@@ -46,8 +46,8 @@ class Qlearning:
             else:
                 for idx, states in enumerate(state):
                     actions["action{0}".format(idx+1)] = np.ndarray.argmax(self.q_table[states])
-                    if actions["action{0}".format(idx+1)] != 0:
-                        print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
+                    # if actions["action{0}".format(idx+1)] != 0:
+                    #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
             # Get the next state and reward with current aciton
             next_state, reward, done, _ = self.env.step(actions["action1"], actions["action2"])
 
@@ -62,6 +62,8 @@ class Qlearning:
 
             state = next_state
             epochs += 1
+            if epochs %1000 == 0:
+                print("Epochs: ", epochs)
 
         done = False
 
