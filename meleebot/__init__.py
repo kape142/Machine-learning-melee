@@ -11,19 +11,19 @@ class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
         self.CheckGameStatus = False
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
-        high = np.array([
-            5,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            5,  # current opponent action
+        self.high = np.array([
+            4,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
+            4,  # current opponent action
             20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
         ])
 
-        low = np.array([
+        self.low = np.array([
             # self
             0,  # current action
             0,  # current opponent action
             0,  # distance
         ])
-        self.observation_space = spaces.Box(low, high, dtype=np.int)
+        self.observation_space = spaces.Box(self.low, self.high, dtype=np.int)
         self.state = None
         self.state2 = None
         self.rewardstate = None

@@ -7,8 +7,12 @@ import time
 class Qlearning:
     def __init__(self, learning_rate, epsilon, environment):
         self.env = environment
-        self.q_table = np.zeros([5, 5, 21, self.env.action_space.n])
-        #print("Shape of the Q-table:", self.q_table.shape)
+
+        # Initialize the q table with shape = shape_q_table
+        shape_q_table = (self.env.high - self.env.low + 1).tolist()
+        shape_q_table.append(self.env.action_space.n)
+        self.q_table = np.zeros(shape_q_table)
+        print("Shape of the Q-table:", self.q_table.shape)
 
         # Parameters for the Q alogrithm
         self.alpha = learning_rate
