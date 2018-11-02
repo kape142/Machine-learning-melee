@@ -104,7 +104,7 @@ class MeleeBot:
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.CheckGameStatus == False:
-                print("======= GAME STARTED ========")
+                #print("======= GAME STARTED ========")
                 self.CheckGameStatus = True
             if self.args.framerecord:
                 self.framedata.recordframe(self.gamestate)
