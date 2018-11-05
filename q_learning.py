@@ -16,6 +16,13 @@ class Qlearning:
         print("Shape of the Q-table:", self.q_table.shape)
         print("Datatype of Q-table:", self.q_table.dtype)
 
+        # Calculating the expected storage size of q_table
+        stored_size = 1
+        for element in shape_q_table:
+            stored_size *= element
+        stored_size *= 4/1e6
+        print("With current size of Q-table the expected stored value is:", stored_size, "MB")
+
         # Parameters for the Q alogrithm
         self.alpha = learning_rate
         self.epsilon = epsilon
@@ -57,6 +64,7 @@ class Qlearning:
                 next_max = np.max(self.q_table[next_state[idx]])
                 state_action = state[idx] + (actions["action{0}".format(idx+1)],)
 
+
                 # Update Q_table for both bots
                 self.q_table[state_action] = self.q_table[state_action] + np.float32(self.alpha * (reward[idx] + self.gamma*next_max - self.q_table[state_action]))
 
@@ -64,6 +72,8 @@ class Qlearning:
             epochs += 1
             if epochs %1000 == 0:
                 print("Epochs: ", epochs)
+                print("Bot1's State: ", state[0], "Reward", reward[0])
+                print("Bot2's State: ", state[1], "Reward", reward[1])
 
         done = False
 
@@ -72,14 +82,14 @@ class Qlearning:
 
 
         # Lagrer Q_tabellen
-        np.save('q_table_v3.npy', self.q_table)
+        np.save('q_table_v4_augmented_states.npy', self.q_table)
         print("Datatype of Q-table after learning:", self.q_table.dtype)
-        print("Q table saved to file 'q_table_v3.npy'")
+        print("Q table saved to file 'q_table_v4_augmented_states.npy'")
 
 
 if __name__ == '__main__':
     bot = None
-    epsilon = 0.01
+    epsilon = 1.0
     load_old_qtable = True
     try:
         for i in range(10000):
@@ -91,7 +101,7 @@ if __name__ == '__main__':
             ql = Qlearning(0.3, epsilon, bot)
 
             if load_old_qtable:
-                ql.q_table = np.load('q_table_v3.npy').astype(dtype=np.float32)
+                ql.q_table = np.load('q_table_v4_augmented_states.npy').astype(dtype=np.float32)
                 #print("Type of loaded q_table: ", ql.q_table.dtype)
             bot.reset()
             while bot.CheckGameStatus == False:

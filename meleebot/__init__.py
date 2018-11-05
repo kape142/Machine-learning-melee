@@ -12,16 +12,20 @@ class MeleeBot:
         self.CheckGameStatus = False
         self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
-            4,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            4,  # current opponent action
-            20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
+            4,      # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
+            4,      # current opponent action
+            20,     # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
+            20,     # x pos self
+            20,     # x pos opponment
         ])
 
         low = np.array([
             # self
-            0,  # current action
-            0,  # current opponent action
-            0,  # distance
+            0,      # current action
+            0,      # current opponent action
+            0,      # distance
+            -20,    # x pos self
+            -20,    # x pos opponment
         ])
         self.observation_space = spaces.Box(low, high, dtype=np.int)
         self.state = None
@@ -156,15 +160,16 @@ class MeleeBot:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward(self.rewardstate, prevrewardstate)
+        reward += self.get_reward(self.rewardstate, prevrewardstate, self.state)
         if not self.args.live:
-            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2)
+            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2, self.state2)
         info = "I am currently doing %s, which corresponds to action #%0.f, " \
                "my opponent is doing %s, which corresponds to action #%0.f, " \
                "and the relative distance to my opponent is %.0f" % \
                (melee.enums.Action(ai_list[5]).name, self.state[0],
                 melee.enums.Action(opp_list[5]).name, self.state[1],
                 self.state[2])
+
         return [self.state, self.state2], [reward, reward2], done, info
 
     def perform_action(self, action, anim_state, controller):
@@ -187,25 +192,34 @@ class MeleeBot:
         controller.empty_input()
         return 0
 
-    def get_reward(self, state, prevstate):
-        reward = 0
-        reward -= max(state[0] - prevstate[0], 0)
-        reward -= (prevstate[1] - state[1]) * 100
-        reward += max(state[2] - prevstate[2], 0)
-        reward += (prevstate[3] - state[3]) * 200
+    def get_reward(self, rewardstate, prevrewardstate, state):
+        reward = -1         # -1 reward for each frame
+        reward -= max(rewardstate[0] - prevrewardstate[0], 0)   # percent self
+        reward -= (prevrewardstate[1] - rewardstate[1]) * 100   # stock self
+        reward += max(rewardstate[2] - prevrewardstate[2], 0)   # percent opponent
+        reward += (prevrewardstate[3] - rewardstate[3]) * 150   # stock opponent
+        if state[3] > 15 and state[3] < -15:                    # x-pos self
+            reward -= 2
+            if state[4] > 15 and state[4] < -15:               # x-pos opponent
+                reward +=2
+
         return reward
 
     def update_state(self, ai_list, opp_list):
-        state = np.zeros(3)
+        state = np.zeros(5)
         state[0] = self.action_to_number(ai_list[5], ai_list[4])
         state[1] = self.action_to_number(opp_list[5], opp_list[4])
         state[2] = self.discretize_distance(ai_list[0], opp_list[0])
+
+        # Mapper [-200, 200] til [-20, 20]
+        state[3] = ai_list[0]/10    # self bot
+        state[4] = opp_list[0]/10   # opponent
         return state
 
     def update_rewardstate(self, ai_list, opp_list):
         state = np.zeros(4)
-        state[0] = ai_list[2]
-        state[1] = ai_list[3]
+        state[0] = ai_list[2]       # percent
+        state[1] = ai_list[3]       # stock
         state[2] = opp_list[2]
         state[3] = opp_list[3]
         return state
@@ -244,8 +258,8 @@ class MeleeBot:
         return 4
 
     def reset(self):
-        self.state = np.zeros(3)
-        self.state2 = np.zeros(3)
+        self.state = np.zeros(5)
+        self.state2 = np.zeros(5)
         self.rewardstate = np.zeros(4)
         self.rewardstate2 = np.zeros(4)
         return [self.state, self.state2]
