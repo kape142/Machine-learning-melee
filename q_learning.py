@@ -3,6 +3,7 @@ import numpy as np
 import random
 from meleebot import MeleeBot
 import time
+import melee
 
 class Qlearning:
     def __init__(self, learning_rate, epsilon, environment):
@@ -19,6 +20,8 @@ class Qlearning:
         self.max_epsilon = 0.99
         self.min_epsilon = 0.01
         self.decay_rate = 0.01
+
+        self.animations = []
 
         self.all_epochs = []
 
@@ -42,8 +45,10 @@ class Qlearning:
                     actions["action{0}".format(idx+1)] = np.ndarray.argmax(self.q_table[states])
                     if actions["action{0}".format(idx+1)] != 0:
                         print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
-            next_state, reward, done, _ = self.env.step(actions["action1"], actions["action2"])
-
+            next_state, reward, done, animations = self.env.step(actions["action1"], actions["action2"])
+            for anim in animations:
+                if not anim in self.animations:
+                    self.animations.append(anim)
             # Want the next_state on the from [(x,y,z),(x,y,z)] with integeres
             for idx, states in enumerate(next_state):
                 next_state[idx] = tuple(states.astype(int))
@@ -57,9 +62,12 @@ class Qlearning:
             epochs += 1
 
         done = False
+        self.animations.sort()
+        for anim in self.animations:
+            print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
 
         # ------ Inkluderer senere når jeg tar med flere episoder(flere game over) ------ #
-        #self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-0.1*self.epsilon)
+        # self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-0.1*self.epsilon)
         self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*self.epsilon)
         # Lagrer Q_tabellen
         np.save('q_table_v3.npy', self.q_table)
@@ -69,16 +77,16 @@ class Qlearning:
 
 if __name__ == '__main__':
     bot = None
-    epsilon = 1.0
-    load_old_qtable = True
+    epsilon = 0.2
+    load_old_qtable = False
     try:
         for i in range(10000):
             print("Iteration: ", i+1)
-            bot = MeleeBot(iso_path="melee.iso", player_control=True)  # change to your path to melee v1.02 NTSC ISO
+            bot = MeleeBot(iso_path="melee.iso", player_control=False, render=False)  # change to2 your path to melee v1.02 NTSC ISO
             # print("Action space: ", bot.action_space.n)
             # print("Observation space: ", bot.observation_space.shape)
             # print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")
-            ql = Qlearning(0.5,epsilon, bot)
+            ql = Qlearning(0.5, epsilon, bot)
 
             if load_old_qtable:
                 ql.q_table = np.load('q_table_v3.npy')

@@ -10,7 +10,23 @@ from gym import spaces
 class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
         self.CheckGameStatus = False
-        self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
+        self.action_list = [
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN),  # 0: Analog stick center
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),  # 1: Analog stick down
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),  # 2: Analog stick left
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),  # 3: Analog stick right
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),  # 4: Analog stick center + A button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),  # 5: Analog stick down + A button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),  # 6: Analog stick right + A button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),  # 7: Analog stick left  + A button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),  # 8: Analog stick center + R button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),  # 9: Analog stick down + R button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),  # 10: Analog stick right + R button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),  # 11: Analog stick left + R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),
+            # 12: Analog stick center + A button & R button
+        ]
+        self.action_space = spaces.Discrete(len(self.action_list))  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
             5,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
             5,  # current opponent action
@@ -104,7 +120,7 @@ class MeleeBot:
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.CheckGameStatus == False:
-                #print("======= GAME STARTED ========")
+                # print("======= GAME STARTED ========")
                 self.CheckGameStatus = True
             if self.args.framerecord:
                 self.framedata.recordframe(self.gamestate)
@@ -117,9 +133,9 @@ class MeleeBot:
                 self.state2 = self.update_state(opp_list, ai_list)
                 self.rewardstate2 = self.update_rewardstate(opp_list, ai_list)
 
-            reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5], self.controller)
+            self.action_list[action](self.controller)
             if action2 is not None:
-                reward2 += self.perform_action(action2, self.gamestate.opponent_state.tolist()[5], self.controller2)
+                self.action_list[action2](self.controller2)
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -127,7 +143,7 @@ class MeleeBot:
                                              port=self.args.port,
                                              opponent_port=self.args.opponent,
                                              controller=self.controller,
-                                             swag=True,
+                                             swag=False,
                                              start=True)
             if not self.args.live:
                 melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -135,12 +151,12 @@ class MeleeBot:
                                                  port=self.args.opponent,
                                                  opponent_port=self.args.port,
                                                  controller=self.controller2,
-                                                 swag=True,
+                                                 swag=False,
                                                  start=True)
         # If we're at the postgame scores screen, spam START
         elif self.gamestate.menu_state == melee.enums.Menu.POSTGAME_SCORES:
             melee.menuhelper.skippostgame(controller=self.controller)
-            done=True
+            done = True
             if not self.args.live:
                 melee.menuhelper.skippostgame(controller=self.controller2)
         # If we're at the stage select screen, choose a stageopponent
@@ -165,30 +181,11 @@ class MeleeBot:
                (melee.enums.Action(ai_list[5]).name, self.state[0],
                 melee.enums.Action(opp_list[5]).name, self.state[1],
                 self.state[2])
+        info = ai_list[5], opp_list[5]
         return [self.state, self.state2], [reward, reward2], done, info
 
-    def perform_action(self, action, anim_state, controller):
-        en = melee.enums.Action
-        # if en(anim_state) != en.STANDING and 1 <= action <= 2:
-        #     controller.empty_input()
-        #     return 0
-        # if en(anim_state) != en.STANDING and action == 3:
-        #     controller.empty_input()
-        #     return 0
-        if action == 1:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
-            return 0
-        if action == 2:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
-            return 0
-        if action == 3:
-            controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
-            return 0
-        controller.empty_input()
-        return 0
-
     def get_reward(self, state, prevstate):
-        reward = 0
+        reward = -0.01  # -1 per frame passing
         reward -= max(state[0] - prevstate[0], 0)
         reward -= (prevstate[1] - state[1]) * 100
         reward += max(state[2] - prevstate[2], 0)
@@ -214,10 +211,10 @@ class MeleeBot:
         distance = xpos_self - xpos_opp
         absdist = abs(distance)
         sigdist = np.sign(distance)
-        if absdist>100:
-            return 10+10*sigdist
+        if absdist > 100:
+            return 10 + 10 * sigdist
         sqdist = np.floor(np.sqrt(absdist))
-        return 10+sqdist*sigdist
+        return 10 + sqdist * sigdist
 
     def state_to_action_name(self, action):
         if action == 0:
