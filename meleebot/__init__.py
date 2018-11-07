@@ -10,13 +10,29 @@ from gym import spaces
 class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
         self.CheckGameStatus = False
-        self.action_space = spaces.Discrete(4)  # [stand still, fsmash left, fsmash right, shield]
+        self.action_list = [
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN),  # 0: Analog stick center
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),  # 1: Analog stick down
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),  # 2: Analog stick left
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),  # 3: Analog stick right
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),  # 4: Analog stick center + A button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),  # 5: Analog stick down + A button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),  # 6: Analog stick right + A button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),  # 7: Analog stick left  + A button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),  # 8: Analog stick center + R button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),  # 9: Analog stick down + R button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),  # 10: Analog stick right + R button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),  # 11: Analog stick left + R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),
+            # 12: Analog stick center + A button & R button
+        ]
+        self.action_space = spaces.Discrete(len(self.action_list))  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
-            4,      # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            4,      # current opponent action
+            5,      # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
+            5,      # current opponent action
             20,     # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
-            20,     # x pos self
-            20,     # x pos opponment
+            10,     # current x position of self
+            10,     # current x position of opponent
         ])
 
         low = np.array([
@@ -24,8 +40,8 @@ class MeleeBot:
             0,      # current action
             0,      # current opponent action
             0,      # distance
-            -20,    # x pos self
-            -20,    # x pos opponment
+            -10,     # current x position of self
+            -10,     # current x position of opponent
         ])
         self.observation_space = spaces.Box(low, high, dtype=np.int)
         self.state = None
@@ -108,7 +124,7 @@ class MeleeBot:
         # What menu are we in?
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
             if self.CheckGameStatus == False:
-                #print("======= GAME STARTED ========")
+                # print("======= GAME STARTED ========")
                 self.CheckGameStatus = True
             if self.args.framerecord:
                 self.framedata.recordframe(self.gamestate)
@@ -121,9 +137,9 @@ class MeleeBot:
                 self.state2 = self.update_state(opp_list, ai_list)
                 self.rewardstate2 = self.update_rewardstate(opp_list, ai_list)
 
-            reward += self.perform_action(action, self.gamestate.ai_state.tolist()[5], self.controller)
+            self.action_list[action](self.controller)
             if action2 is not None:
-                reward2 += self.perform_action(action2, self.gamestate.opponent_state.tolist()[5], self.controller2)
+                self.action_list[action2](self.controller2)
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -131,7 +147,7 @@ class MeleeBot:
                                              port=self.args.port,
                                              opponent_port=self.args.opponent,
                                              controller=self.controller,
-                                             swag=True,
+                                             swag=False,
                                              start=True)
             if not self.args.live:
                 melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -139,12 +155,12 @@ class MeleeBot:
                                                  port=self.args.opponent,
                                                  opponent_port=self.args.port,
                                                  controller=self.controller2,
-                                                 swag=True,
+                                                 swag=False,
                                                  start=True)
         # If we're at the postgame scores screen, spam START
         elif self.gamestate.menu_state == melee.enums.Menu.POSTGAME_SCORES:
             melee.menuhelper.skippostgame(controller=self.controller)
-            done=True
+            done = True
             if not self.args.live:
                 melee.menuhelper.skippostgame(controller=self.controller2)
         # If we're at the stage select screen, choose a stageopponent
@@ -160,49 +176,29 @@ class MeleeBot:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward(self.rewardstate, prevrewardstate, self.state)
+        reward += self.get_reward(self.rewardstate, prevrewardstate)
         if not self.args.live:
-            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2, self.state2)
+            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2)
         info = "I am currently doing %s, which corresponds to action #%0.f, " \
                "my opponent is doing %s, which corresponds to action #%0.f, " \
                "and the relative distance to my opponent is %.0f" % \
                (melee.enums.Action(ai_list[5]).name, self.state[0],
                 melee.enums.Action(opp_list[5]).name, self.state[1],
                 self.state[2])
-
+        info = ai_list[5], opp_list[5]
         return [self.state, self.state2], [reward, reward2], done, info
 
-    def perform_action(self, action, anim_state, controller):
-        en = melee.enums.Action
-        # if en(anim_state) != en.STANDING and 1 <= action <= 2:
-        #     controller.empty_input()
-        #     return 0
-        # if en(anim_state) != en.STANDING and action == 3:
-        #     controller.empty_input()
-        #     return 0
-        if action == 1:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 0, 0.5)
-            return 0
-        if action == 2:
-            controller.tilt_analog(melee.enums.Button.BUTTON_C, 1, 0.5)
-            return 0
-        if action == 3:
-            controller.press_shoulder(melee.enums.Button.BUTTON_L, 1)
-            return 0
-        controller.empty_input()
-        return 0
+    def get_reward(self, state, prevstate):
+        reward = -0.0166667                             # ~ -1.0 each second
+        reward -= max(state[0] - prevstate[0], 0)       # percent self
+        reward -= (prevstate[1] - state[1]) * 100       # stock self
+        reward += max(state[3] - prevstate[3], 0)*2     # percent opponent
+        reward += (prevstate[4] - state[4]) * 100       # stock opponent
 
-    def get_reward(self, rewardstate, prevrewardstate, state):
-        reward = -1         # -1 reward for each frame
-        reward -= max(rewardstate[0] - prevrewardstate[0], 0)   # percent self
-        reward -= (prevrewardstate[1] - rewardstate[1]) * 100   # stock self
-        reward += max(rewardstate[2] - prevrewardstate[2], 0)   # percent opponent
-        reward += (prevrewardstate[3] - rewardstate[3]) * 150   # stock opponent
-        if state[3] > 15 and state[3] < -15:                    # x-pos self
-            reward -= 2
-            if state[4] > 15 and state[4] < -15:               # x-pos opponent
-                reward +=2
-
+        if  abs(state[2]) > 7:
+            reward -= 0.005             # -0,3 each second self is at the edge
+        if abs(state[5]) > 7:
+            reward += 0.005             # 0,3 each second opponent is at the edge
         return reward
 
     def update_state(self, ai_list, opp_list):
@@ -210,28 +206,38 @@ class MeleeBot:
         state[0] = self.action_to_number(ai_list[5], ai_list[4])
         state[1] = self.action_to_number(opp_list[5], opp_list[4])
         state[2] = self.discretize_distance(ai_list[0], opp_list[0])
-
-        # Mapper [-200, 200] til [-20, 20]
-        state[3] = ai_list[0]/10    # self bot
-        state[4] = opp_list[0]/10   # opponent
+        state[3] = self.discretize_position(ai_list[0])
+        state[4] = self.discretize_position(opp_list[0])
         return state
+
 
     def update_rewardstate(self, ai_list, opp_list):
-        state = np.zeros(4)
-        state[0] = ai_list[2]       # percent
-        state[1] = ai_list[3]       # stock
-        state[2] = opp_list[2]
-        state[3] = opp_list[3]
+        state = np.zeros(6)
+        state[0] = ai_list[2]                            # percent
+        state[1] = ai_list[3]                            # stock
+        state[2] = self.discretize_position(ai_list[0])  # Discretized x pos
+        state[3] = opp_list[2]
+        state[4] = opp_list[3]
+        state[5] = self.discretize_position(opp_list[0])
         return state
+
+    # Skal vi gjøre det samme her KP som du gjorde med discretize_distance?
+    def discretize_position(self, position):  # Mapper verdi til [-10, 10]
+        sigdist = np.sign(position)
+        if abs(position) > 100:
+            discretized_position = 10*sigdist
+        else:
+            discretized_position = int(position/10)
+        return discretized_position
 
     def discretize_distance(self, xpos_self, xpos_opp):
         distance = xpos_self - xpos_opp
         absdist = abs(distance)
         sigdist = np.sign(distance)
-        if absdist>100:
-            return 10+10*sigdist
+        if absdist > 100:
+            return 10 + 10 * sigdist
         sqdist = np.floor(np.sqrt(absdist))
-        return 10+sqdist*sigdist
+        return 10 + sqdist * sigdist
 
     def state_to_action_name(self, action):
         if action == 0:
@@ -260,8 +266,8 @@ class MeleeBot:
     def reset(self):
         self.state = np.zeros(5)
         self.state2 = np.zeros(5)
-        self.rewardstate = np.zeros(4)
-        self.rewardstate2 = np.zeros(4)
+        self.rewardstate = np.zeros(6)
+        self.rewardstate2 = np.zeros(6)
         return [self.state, self.state2]
 
     def check_port(self, value):

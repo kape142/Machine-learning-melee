@@ -8,14 +8,23 @@ try:
     rewardtot = [0,0]
     print("Action space: ", bot.action_space.n)
     print("Observation space: ", bot.observation_space.shape)
-    while True:
+    i = 0;
+    while bot.CheckGameStatus == False:
         action = bot.action_space.sample()
         action2 = bot.action_space.sample()
         obv, reward, done, info = bot.step(action, action2)
-        print(info)
-        print(obv)
+    while True:
+        i += 1
+        action = bot.action_space.sample()
+        action2 = bot.action_space.sample()
+        obv, reward, done, info = bot.step(action, action2)
+
         rewardtot += reward
         # print(rewardtot)
+        if i % 100 == 0:
+            print(info)
+            print(obv)
+            time.sleep(1)
 except Exception as e:
     print(e)
     bot.dolphin.terminate()
