@@ -18,7 +18,7 @@ print(discretize_position(-123))
 
 
 
-reward = np.load('Rewards_v5.npy')
+reward = np.load('Rewards_model-v1.npy')
 #print(reward[0].tolist())
 
 

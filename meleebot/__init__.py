@@ -11,20 +11,19 @@ class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
         self.CheckGameStatus = False
         self.action_list = [
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN),  # 0: Analog stick center
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),  # 1: Analog stick down
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),  # 2: Analog stick left
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),  # 3: Analog stick right
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),  # 4: Analog stick center + A button
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),  # 5: Analog stick down + A button
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),  # 6: Analog stick right + A button
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),  # 7: Analog stick left  + A button
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),  # 8: Analog stick center + R button
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),  # 9: Analog stick down + R button
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),  # 10: Analog stick right + R button
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),  # 11: Analog stick left + R button
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),
-            # 12: Analog stick center + A button & R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN), # 0: Analog stick center
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),   # 1: Analog stick down
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),   # 2: Analog stick left
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),   # 3: Analog stick right
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),    # 4: Analog stick center + A button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),      # 5: Analog stick down + A button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),      # 6: Analog stick right + A button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),      # 7: Analog stick left  + A button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),    # 8: Analog stick center + R button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),      # 9: Analog stick down + R button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),      # 10: Analog stick right + R button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),      # 11: Analog stick left + R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),    # 12: Analog stick center + A button & R button
         ]
         self.action_space = spaces.Discrete(len(self.action_list))  # [stand still, fsmash left, fsmash right, shield]
         high = np.array([
@@ -36,10 +35,9 @@ class MeleeBot:
         ])
 
         low = np.array([
-            # self
-            0,      # current action
-            0,      # current opponent action
-            0,      # distance
+            0,       # current action
+            0,       # current opponent action
+            0,       # distance
             -10,     # current x position of self
             -10,     # current x position of opponent
         ])
