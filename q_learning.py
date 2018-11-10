@@ -23,7 +23,7 @@ class Qlearning:
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
         self.max_alpha = 0.2
         self.min_alpha = 0.001
-        self.decay_rate_alpha = 0.005
+        self.decay_rate_alpha = 0.01
 
         # Epsilon parameter
         self.epsilon = epsilon              # Synker, ca 1 til 0
@@ -122,8 +122,8 @@ class Qlearning:
         #     print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
 
         # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
-        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode+1))
-        self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*(episode+1))
+        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode))
+        self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*(episode))
 
 
         # Lagrer Q_tabellen og rewards
@@ -140,11 +140,11 @@ if __name__ == '__main__':
     epsilon = 0.99                  # Ratio of random actions
     alpha = 0.2                     # Learning rate
     seconds = 20                    # Seconds in game before termination
-    load_old_qtable = True         # Load previous model and train upon this?
+    load_old_qtable = True          # Load previous model and train upon this?
     stored_filename = 'model-v1'    # Postfix of the stored model after game end.
     try:
-        for episode in range(10000):
-            print("============ EPISODE: {0} ============".format(episode+1))
+        for episode in range(1, 10001):
+            print("============ EPISODE: {0} ============".format(episode))
             bot = MeleeBot(iso_path="melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
             #print("Action space: ", bot.action_space.n)
             #print("Observation space: ", bot.observation_space.shape)
