@@ -129,7 +129,7 @@ class Qlearning:
         # Lagrer Q_tabellen og rewards
         np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
         np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
-        print("Datatype of Q-table after learning:", self.q_table.dtype)
+        #print("Datatype of Q-table after learning:", self.q_table.dtype)
         print("Q-table and cumalitive reward saved to folder 'Stored_results' with postfix '"+stored_filename+".npy'")
 
         return self.epsilon, self.alpha
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     epsilon = 0.99                  # Ratio of random actions
     alpha = 0.2                     # Learning rate
     seconds = 20                    # Seconds in game before termination
-    load_old_qtable = False         # Load previous model and train upon this?
+    load_old_qtable = True         # Load previous model and train upon this?
     stored_filename = 'model-v1'    # Postfix of the stored model after game end.
     try:
         for episode in range(10000):
@@ -152,7 +152,7 @@ if __name__ == '__main__':
             ql = Qlearning(alpha, epsilon, bot)
 
             if load_old_qtable:
-                ql.q_table = np.load('Stored_results/q_table_'+stored_filename+'.npy').astype(dtype=np.float32)
+                ql.q_table = np.load('Stored_results/Q_table_'+stored_filename+'.npy').astype(dtype=np.float32)
                 #print("Type of loaded q_table: ", ql.q_table.dtype)
             bot.reset()
             while bot.CheckGameStatus == False:
