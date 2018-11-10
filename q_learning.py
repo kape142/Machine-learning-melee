@@ -14,16 +14,10 @@ class Qlearning:
         shape_q_table.append(self.env.action_space.n)
         self.q_table = np.zeros(shape_q_table, dtype=np.float32)
 
+        # Print information about th Q table
         print("Shape of the Q-table:", self.q_table.shape)
         print("Datatype of Q-table:", self.q_table.dtype)
-
-        # Calculating the expected storage size of q_table
-        stored_size = 1
-        for element in shape_q_table:
-            stored_size *= element
-        print("Current size of Q_table: ", stored_size)
-        stored_size *= 4/1e6
-        print("With current size of Q-table the expected stored value is:", stored_size, "MB")
+        self.get_stored_size_q_table(shape_q_table)
 
         # Learning rate aparameters
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
@@ -37,14 +31,35 @@ class Qlearning:
         self.min_epsilon = 0.001
         self.decay_rate = 0.01
 
-        self.animations = []
-
         # Gamma - discount rate
         self.gamma =  0.9   # hold konstant, hvor hardt du skal backtrace ting
 
         # Store the total reward and the cumalitive reward
         self.total_reward = [0,0]
         self.store_cumulative_reward = [[0],[0]]
+        self.animations = []
+
+
+    def get_stored_size_q_table(self, shape_q_table):
+        # Calculating the expected storage size of q_table
+        stored_size = 1
+        for element in shape_q_table:
+            stored_size *= element
+        print("Current size of Q_table: ", stored_size)
+        stored_size *= 4/1e6
+        print("With current size of Q-table the expected stored value is:", stored_size, "MB")
+
+
+    def get_action(self, actions, state):
+        if random.uniform(0,1) < self.epsilon:
+            for i in range(len(actions)):
+                actions["action{0}".format(i+1)] = self.env.action_space.sample()
+        else:
+            for idx, states in enumerate(state):
+                actions["action{0}".format(idx+1)] = np.ndarray.argmax(self.q_table[states])
+                # if actions["action{0}".format(idx+1)] != 0:
+                #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
+        return actions
 
     def learn(self):
         state = self.env.reset()
@@ -60,14 +75,7 @@ class Qlearning:
             state[idx] = tuple(states.astype(int))
 
         while not done:
-            if random.uniform(0,1) < self.epsilon:
-                for i in range(len(actions)):
-                    actions["action{0}".format(i+1)] = self.env.action_space.sample()
-            else:
-                for idx, states in enumerate(state):
-                    actions["action{0}".format(idx+1)] = np.ndarray.argmax(self.q_table[states])
-                    # if actions["action{0}".format(idx+1)] != 0:
-                    #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
+            actions = self.get_action(actions, state)
 
             # Get the next state and reward with current aciton
             next_state, reward, done, animations = self.env.step(actions["action1"], actions["action2"])
@@ -103,12 +111,12 @@ class Qlearning:
         for anim in self.animations:
             print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
 
-        # Oppdaterer epsilon. Eksonensiell reduksjon.
-        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*self.epsilon)
-        self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*self.alpha)
+        # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
+        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode+1))
+        self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*(episode+1))
 
 
-        # Lagrer Q_tabellen
+        # Lagrer Q_tabellen og rewards
         np.save('q_table_v6_augm_stateNactions.npy', self.q_table)
         np.save('Rewards_v6.npy', self.store_cumulative_reward)
         print("Datatype of Q-table after learning:", self.q_table.dtype)
@@ -119,12 +127,12 @@ class Qlearning:
 
 if __name__ == '__main__':
     bot = None
-    epsilon = 0.0
-    alpha = 0.05
+    epsilon = 0.99
+    alpha = 0.2
     load_old_qtable = True
     try:
-        for i in range(10000):
-            print("============ ITERATION: {0} ============".format(i+1))
+        for episode in range(10000):
+            print("============ EPISODE: {0} ============".format(episode+1))
             bot = MeleeBot(iso_path="melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
             #print("Action space: ", bot.action_space.n)
             #print("Observation space: ", bot.observation_space.shape)
@@ -146,7 +154,11 @@ if __name__ == '__main__':
             time.sleep(0.5)
             bot.dolphin.terminate()
             time.sleep(1)
-            print("\n============ ITERATION END ============\n\n")
+            print("\n============ EPISODE END ============\n\n")
+
+
+
+
     except Exception as e:
         print(e)
         bot.dolphin.terminate()
