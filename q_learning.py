@@ -61,10 +61,12 @@ class Qlearning:
                 #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
         return actions
 
-    def learn(self):
+    def learn(self, second):
         state = self.env.reset()
         epochs = 0
-        done = False
+        frames = second*60
+
+        #done = False
         actions = {"action1":0, "action2":0}
         print("Epsilon: ", self.epsilon)
         print("Alpha: ", self.alpha)
@@ -74,7 +76,14 @@ class Qlearning:
         for idx, states in enumerate(state):
             state[idx] = tuple(states.astype(int))
 
-        while not done:
+        # Wait until game have started before updating the Q_table
+        animations = (323,323)
+        while ( animations[0] in [322, 323, 324] or
+                animations[1] in [322, 323, 324] ):
+            _, _, _, animations = self.env.step(actions["action1"], actions["action2"])
+
+        # while not done:   # Game continues until game over (include done false before and after while loop)
+        for epoch in range(1,frames+1):
             # Get random action or action from Q table.
             actions = self.get_action(actions, state)
 
@@ -107,10 +116,10 @@ class Qlearning:
                 print("Bot1's State: ", state[0], "Reward", self.total_reward[0])
                 print("Bot2's State: ", state[1], "Reward", self.total_reward[1])
 
-        done = False
+        #done = False
         self.animations.sort()
-        for anim in self.animations:
-            print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
+        # for anim in self.animations:
+        #     print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
 
         # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
         self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode+1))
@@ -128,10 +137,11 @@ class Qlearning:
 
 if __name__ == '__main__':
     bot = None
-    epsilon = 0.99
-    alpha = 0.2
-    load_old_qtable = False
-    stored_filename = 'model-v1'
+    epsilon = 0.99                  # Ratio of random actions
+    alpha = 0.2                     # Learning rate
+    seconds = 20                    # Seconds in game before termination
+    load_old_qtable = False         # Load previous model and train upon this?
+    stored_filename = 'model-v1'    # Postfix of the stored model after game end.
     try:
         for episode in range(10000):
             print("============ EPISODE: {0} ============".format(episode+1))
@@ -149,7 +159,7 @@ if __name__ == '__main__':
                 action = bot.action_space.sample()
                 action2 = bot.action_space.sample()
                 obv, reward, done, info = bot.step(action, action2)
-            epsilon, alpha = ql.learn()
+            epsilon, alpha = ql.learn(seconds)
 
             time.sleep(1)
             bot.dolphin.terminate()

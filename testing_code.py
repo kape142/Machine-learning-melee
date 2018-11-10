@@ -18,11 +18,11 @@ print(discretize_position(-123))
 
 
 
-reward = np.load('Rewards_model-v1.npy')
+reward = np.load('Stored_results/Rewards_model-v1.npy')
 #print(reward[0].tolist())
 
 
 
-plt.plot(reward[0].tolist())
+plt.plot(reward[1].tolist())
 plt.ylabel('some numbers')
 plt.show()
