@@ -75,6 +75,7 @@ class Qlearning:
             state[idx] = tuple(states.astype(int))
 
         while not done:
+            # Get random action or action from Q table.
             actions = self.get_action(actions, state)
 
             # Get the next state and reward with current aciton
