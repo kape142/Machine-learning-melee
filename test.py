@@ -9,7 +9,7 @@ try:
     print("Action space: ", bot.action_space.n)
     print("Observation space: ", bot.observation_space.shape)
     i = 0;
-    while bot.CheckGameStatus == False:
+    while bot.in_game == False:
         action = bot.action_space.sample()
         action2 = bot.action_space.sample()
         obv, reward, done, info = bot.step(action, action2)

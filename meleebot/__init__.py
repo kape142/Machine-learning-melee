@@ -9,7 +9,9 @@ from gym import spaces
 
 class MeleeBot:
     def __init__(self, render=False, iso_path=None, player_control=True):
-        self.CheckGameStatus = False
+        self.in_game = False
+        self.done = False
+        self.quitting = 0
         self.action_list = [
             lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN),  # 0: Analog stick center
             lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),  # 1: Analog stick down
@@ -26,22 +28,42 @@ class MeleeBot:
             lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),
             # 12: Analog stick center + A button & R button
         ]
-        self.action_space = spaces.Discrete(len(self.action_list))  # [stand still, fsmash left, fsmash right, shield]
+
+        self.lrastart_list = [
+            lambda c: c.empty_input(),
+            lambda c: {},
+            lambda c: c.press_button(melee.enums.Button.BUTTON_START),
+            lambda c: {},
+            lambda c: {},
+            lambda c: {},
+            lambda c: c.press_shoulder(melee.enums.Button.BUTTON_L, 1),
+            lambda c: {},
+            lambda c: c.press_button(melee.enums.Button.BUTTON_L),
+            lambda c: c.press_button(melee.enums.Button.BUTTON_A),
+            lambda c: {},
+            lambda c: {},
+            lambda c: c.press_shoulder(melee.enums.Button.BUTTON_R, 1),
+            lambda c: {},
+            lambda c: c.press_button(melee.enums.Button.BUTTON_R),
+            lambda c: c.empty_input()
+        ]
+
+        self.action_space = spaces.Discrete(len(self.action_list))  #
         high = np.array([
-            5,      # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            5,      # current opponent action
-            20,     # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
-            10,     # current x position of self
-            10,     # current x position of opponent
+            27,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
+            27,  # current opponent action
+            20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
+            10,  # current x position of self
+            10,  # current x position of opponent
         ])
 
         low = np.array([
             # self
-            0,      # current action
-            0,      # current opponent action
-            0,      # distance
-            -10,     # current x position of self
-            -10,     # current x position of opponent
+            -1,  # current action
+            -1,  # current opponent action
+            0,  # distance
+            -10,  # current x position of self
+            -10,  # current x position of opponent
         ])
         self.observation_space = spaces.Box(low, high, dtype=np.int)
         self.state = None
@@ -122,24 +144,24 @@ class MeleeBot:
         ai_list = self.gamestate.ai_state.tolist()
         opp_list = self.gamestate.opponent_state.tolist()
         # What menu are we in?
+        self.in_game = False
         if self.gamestate.menu_state in [melee.enums.Menu.IN_GAME, melee.enums.Menu.SUDDEN_DEATH]:
-            if self.CheckGameStatus == False:
-                # print("======= GAME STARTED ========")
-                self.CheckGameStatus = True
+            self.in_game = True
             if self.args.framerecord:
                 self.framedata.recordframe(self.gamestate)
-            # XXX: This is where your AI does all of its stuff!
-            # This line will get hit once per frame, so here is where you read
-            #   in the gamestate and decide what buttons to push on the controller
             self.state = self.update_state(ai_list, opp_list)
             self.rewardstate = self.update_rewardstate(ai_list, opp_list)
             if not self.args.live:
                 self.state2 = self.update_state(opp_list, ai_list)
                 self.rewardstate2 = self.update_rewardstate(opp_list, ai_list)
-
-            self.action_list[action](self.controller)
-            if action2 is not None:
-                self.action_list[action2](self.controller2)
+            if self.done:
+                if self.quitting < len(self.lrastart_list):
+                    self.lrastart_list[self.quitting](self.controller)
+                    self.quitting += 1
+            else:
+                self.action_list[action](self.controller)
+                if action2 is not None:
+                    self.action_list[action2](self.controller2)
         # If we're at the character select screen, choose our character
         elif self.gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
             melee.menuhelper.choosecharacter(character=melee.enums.Character.FALCO,
@@ -160,7 +182,11 @@ class MeleeBot:
         # If we're at the postgame scores screen, spam START
         elif self.gamestate.menu_state == melee.enums.Menu.POSTGAME_SCORES:
             melee.menuhelper.skippostgame(controller=self.controller)
-            done = True
+            if self.done:
+                done = True
+                self.done = False
+                self.quitting=0
+
             if not self.args.live:
                 melee.menuhelper.skippostgame(controller=self.controller2)
         # If we're at the stage select screen, choose a stageopponent
@@ -189,22 +215,22 @@ class MeleeBot:
         return [self.state, self.state2], [reward, reward2], done, info
 
     def get_reward(self, state, prevstate):
-        reward = -0.0166667                             # ~ -1.0 each second
-        reward -= max(state[0] - prevstate[0], 0)       # percent self
-        reward -= (prevstate[1] - state[1]) * 100       # stock self
-        reward += max(state[3] - prevstate[3], 0)*2     # percent opponent
-        reward += (prevstate[4] - state[4]) * 100       # stock opponent
+        reward = -0.0166667  # ~ -1.0 each second
+        reward -= max(state[0] - prevstate[0], 0)  # percent self
+        reward -= (prevstate[1] - state[1]) * 100  # stock self
+        reward += max(state[3] - prevstate[3], 0) * 2  # percent opponent
+        reward += (prevstate[4] - state[4]) * 100  # stock opponent
 
-        if  abs(state[2]) > 7:
-            reward -= 0.005             # -0,3 each second self is at the edge
+        if abs(state[2]) > 7:  #Jeg er litt kritisk
+            reward -= 0.005  # -0,3 each second self is at the edge
         if abs(state[5]) > 7:
-            reward += 0.005             # 0,3 each second opponent is at the edge
+            reward += 0.005  # 0,3 each second opponent is at the edge
         return reward
 
     def update_state(self, ai_list, opp_list):
         state = np.zeros(5)
-        state[0] = self.action_to_number(ai_list[5], ai_list[4])
-        state[1] = self.action_to_number(opp_list[5], opp_list[4])
+        state[0] = self.action_to_number(ai_list[5])
+        state[1] = self.action_to_number(opp_list[5])
         state[2] = self.discretize_distance(ai_list[0], opp_list[0])
         state[3] = self.discretize_position(ai_list[0])
         state[4] = self.discretize_position(opp_list[0])
@@ -212,8 +238,8 @@ class MeleeBot:
 
     def update_rewardstate(self, ai_list, opp_list):
         state = np.zeros(6)
-        state[0] = ai_list[2]                            # percent
-        state[1] = ai_list[3]                            # stock
+        state[0] = ai_list[2]  # percent
+        state[1] = ai_list[3]  # stock
         state[2] = self.discretize_position(ai_list[0])  # Discretized x pos
         state[3] = opp_list[2]
         state[4] = opp_list[3]
@@ -224,9 +250,9 @@ class MeleeBot:
     def discretize_position(self, position):  # Mapper verdi til [-10, 10]
         sigdist = np.sign(position)
         if abs(position) > 100:
-            discretized_position = 10*sigdist
+            discretized_position = 10 * sigdist
         else:
-            discretized_position = int(position/10)
+            discretized_position = int(position / 10)
         return discretized_position
 
     def discretize_distance(self, xpos_self, xpos_opp):
@@ -249,18 +275,66 @@ class MeleeBot:
             return "shielding"
         return "doing something weird"
 
-    def action_to_enum_name(self, action):
-        return next(name for name, value in vars(melee.enums.Action).items() if value == action)
-
-    def action_to_number(self, action, facing):
+    def action_to_number(self, action_value):
         en = melee.enums.Action
-        if action == en.STANDING.value or action == en.TURNING.value:
+        action = en(action_value)
+        if action in [en.DEAD_DOWN, en.ON_HALO_DESCENT, en.ENTRY, en.ENTRY_START, en.ENTRY_END]:
             return 0
-        if en.FSMASH_HIGH.value <= action <= en.FSMASH_LOW.value:
-            return 1 + facing
-        if en.SHIELD_START.value <= action <= en.SHIELD_REFLECT.value:
+        if action in [en.STANDING, en.WALK_SLOW, en.TURNING]:
+            return 1
+        if en.DAMAGE_HIGH_1.value <= action.value <= en.DAMAGE_FLY_ROLL.value:
+            return 2
+        if en.SHIELD_START.value <= action.value <= en.SHIELD_REFLECT.value:
             return 3
-        return 4
+        if action == en.DASHING:
+            return 4
+        if action in [en.CROUCH_START, en.CROUCHING, en.CROUCH_END]:
+            return 5
+        if action in [en.LANDING, en.LANDING_SPECIAL]:
+            return 6
+        if action in [en.NEUTRAL_ATTACK_1, en.NEUTRAL_ATTACK_2, en.NEUTRAL_ATTACK_3]:
+            return 7
+        if action in [en.LOOPING_ATTACK_START, en.LOOPING_ATTACK_MIDDLE, en.LOOPING_ATTACK_END]:
+            return 8
+        if action == en.DASH_ATTACK:
+            return 9
+        if action in [en.FALLING, en.DEAD_FALL, en.TUMBLING]:
+            return 10
+        if action == en.FTILT_MID:
+            return 11
+        if action == en.FSMASH_MID:
+            return 12
+        if action == en.DOWNSMASH:
+            return 13
+        if action in [en.NAIR, en.FAIR, en.DAIR]:  # bare ok så lenge de egentlig ikke skal hoppe
+            return 14
+        if action in [en.NAIR_LANDING, en.FAIR_LANDING]:
+            return 15
+        if action in [en.TECH_MISS_UP, en.NEUTRAL_GETUP]:
+            return 16
+        if action in [en.GROUND_ATTACK_UP, en.DAMAGE_GROUND]:
+            return 17
+        if en.GRAB.value <= action.value <= en.GRAB_BREAK.value:
+            return 18
+        if en.GRAB_PULL.value <= action.value <= en.GRABBED.value:
+            return 19
+        if action == en.THROWN_FORWARD:
+            return 20
+        if action == en.THROWN_BACK:
+            return 21
+        if action == en.THROWN_DOWN:
+            return 22
+        if action == en.ROLL_FORWARD:
+            return 23
+        if action == en.ROLL_BACKWARD:
+            return 24
+        if action == en.SPOTDODGE:
+            return 25
+        if action == en.AIRDODGE:
+            return 26
+        if en.THROW_FORWARD.value <= action.value <= en.THROW_DOWN.value:
+            return 27
+        return -1
 
     def reset(self):
         self.state = np.zeros(5)
