@@ -3,6 +3,7 @@ import numpy as np
 import random
 from meleebot import MeleeBot
 import time
+import melee
 
 class Qlearning:
     def __init__(self, alpha, epsilon, environment):
@@ -36,6 +37,8 @@ class Qlearning:
         self.min_epsilon = 0.001
         self.decay_rate = 0.01
 
+        self.animations = []
+
         # Gamma - discount rate
         self.gamma =  0.9   # hold konstant, hvor hardt du skal backtrace ting
 
@@ -67,8 +70,11 @@ class Qlearning:
                     #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
 
             # Get the next state and reward with current aciton
-            next_state, reward, done, _ = self.env.step(actions["action1"], actions["action2"])
+            next_state, reward, done, animations = self.env.step(actions["action1"], actions["action2"])
 
+            for anim in animations:
+                if not anim in self.animations:
+                    self.animations.append(anim)
             # Want the next_state on the from [(x,y,z),(x,y,z)] with integeres
             for idx, states in enumerate(next_state):
                 next_state[idx] = tuple(states.astype(int))
@@ -93,6 +99,9 @@ class Qlearning:
                 print("Bot2's State: ", state[1], "Reward", self.total_reward[1])
 
         done = False
+        self.animations.sort()
+        for anim in self.animations:
+            print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
 
         # Oppdaterer epsilon. Eksonensiell reduksjon.
         self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*self.epsilon)
@@ -116,7 +125,7 @@ if __name__ == '__main__':
     try:
         for i in range(10000):
             print("============ ITERATION: {0} ============".format(i+1))
-            bot = MeleeBot(iso_path="/home/espen/Documents/TTAT3025-ML/LibMelee/Machine-learning-melee/melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
+            bot = MeleeBot(iso_path="melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
             #print("Action space: ", bot.action_space.n)
             #print("Observation space: ", bot.observation_space.shape)
             #print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")

@@ -210,7 +210,6 @@ class MeleeBot:
         state[4] = self.discretize_position(opp_list[0])
         return state
 
-
     def update_rewardstate(self, ai_list, opp_list):
         state = np.zeros(6)
         state[0] = ai_list[2]                            # percent
