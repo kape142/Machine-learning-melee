@@ -13,20 +13,19 @@ class MeleeBot:
         self.done = False
         self.quitting = 0
         self.action_list = [
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN),  # 0: Analog stick center
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),  # 1: Analog stick down
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),  # 2: Analog stick left
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),  # 3: Analog stick right
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),  # 4: Analog stick center + A button
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),  # 5: Analog stick down + A button
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),  # 6: Analog stick right + A button
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),  # 7: Analog stick left  + A button
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),  # 8: Analog stick center + R button
-            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),  # 9: Analog stick down + R button
-            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),  # 10: Analog stick right + R button
-            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),  # 11: Analog stick left + R button
-            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),
-            # 12: Analog stick center + A button & R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_MAIN), # 0: Analog stick center
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_MAIN),   # 1: Analog stick down
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_MAIN),   # 2: Analog stick left
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_MAIN),   # 3: Analog stick right
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_A),    # 4: Analog stick center + A button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_A),      # 5: Analog stick down + A button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_A),      # 6: Analog stick right + A button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_A),      # 7: Analog stick left  + A button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_R),    # 8: Analog stick center + R button
+            lambda c: c.simple_press(0.5, 0, melee.enums.Button.BUTTON_R),      # 9: Analog stick down + R button
+            lambda c: c.simple_press(1, 0.5, melee.enums.Button.BUTTON_R),      # 10: Analog stick right + R button
+            lambda c: c.simple_press(0, 0.5, melee.enums.Button.BUTTON_R),      # 11: Analog stick left + R button
+            lambda c: c.simple_press(0.5, 0.5, melee.enums.Button.BUTTON_Z),    # 12: Analog stick center + A button & R button
         ]
 
         self.lrastart_list = [
@@ -59,9 +58,9 @@ class MeleeBot:
 
         low = np.array([
             # self
-            -1,  # current action
-            -1,  # current opponent action
-            0,  # distance
+            -1,   # current action
+            -1,   # current opponent action
+            0,    # distance
             -10,  # current x position of self
             -10,  # current x position of opponent
         ])
@@ -221,10 +220,10 @@ class MeleeBot:
         reward += max(state[3] - prevstate[3], 0) * 2  # percent opponent
         reward += (prevstate[4] - state[4]) * 100  # stock opponent
 
-        if abs(state[2]) > 7:  #Jeg er litt kritisk
-            reward -= 0.005  # -0,3 each second self is at the edge
+        if  abs(state[2]) > 7:
+            reward -= 0.005        # -0,3 each second self is at the edge
         if abs(state[5]) > 7:
-            reward += 0.005  # 0,3 each second opponent is at the edge
+            reward += 0.005        # 0,3 each second opponent is at the edge
         return reward
 
     def update_state(self, ai_list, opp_list):
@@ -238,8 +237,8 @@ class MeleeBot:
 
     def update_rewardstate(self, ai_list, opp_list):
         state = np.zeros(6)
-        state[0] = ai_list[2]  # percent
-        state[1] = ai_list[3]  # stock
+        state[0] = ai_list[2]                            # percent
+        state[1] = ai_list[3]                            # stock
         state[2] = self.discretize_position(ai_list[0])  # Discretized x pos
         state[3] = opp_list[2]
         state[4] = opp_list[3]
