@@ -49,8 +49,8 @@ class MeleeBot:
 
         self.action_space = spaces.Discrete(len(self.action_list))  #
         high = np.array([
-            27,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
-            27,  # current opponent action
+            29,  # current action [stand still, fsmash left, fsmash right, shield, other (tumble+down)]
+            29,  # current opponent action
             20,  # discretized distance from opponent, 10 is immediate proximity, 0 is max left, 20 max right
             10,  # current x position of self
             10,  # current x position of opponent
@@ -135,8 +135,8 @@ class MeleeBot:
 
         # "step" to the next frame
         self.gamestate.step()
-        if self.gamestate.processingtime * 1000 > 12:
-            print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.")
+        if 300 > self.gamestate.processingtime * 1000 > 12:
+            print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.\n")
         reward = 0
         reward2 = 0
         done = False
@@ -214,16 +214,21 @@ class MeleeBot:
         return [self.state, self.state2], [reward, reward2], done, info
 
     def get_reward(self, state, prevstate):
-        reward = -0.0166667  # ~ -1.0 each second
+        reward = -1/60  # ~ -1.0 each second
         reward -= max(state[0] - prevstate[0], 0)  # percent self
-        reward -= (prevstate[1] - state[1]) * 100  # stock self
-        reward += max(state[3] - prevstate[3], 0) * 2  # percent opponent
+        reward -= (prevstate[1] - state[1]) * 50  # stock self
+        reward += max(state[3] - prevstate[3], 0) * 3  # percent opponent
         reward += (prevstate[4] - state[4]) * 100  # stock opponent
 
-        if  abs(state[2]) > 7:
+        if state[6] == 8:
+            reward -= 1
+
+        # Dette virker litt spesifikt, burde kanskje diskutere med Jonathan
+        if abs(state[2]) > 7 and abs(state[5]) <= 7:
             reward -= 0.005        # -0,3 each second self is at the edge
-        if abs(state[5]) > 7:
+        if abs(state[5]) > 7 and abs(state[2]) <= 7:
             reward += 0.005        # 0,3 each second opponent is at the edge
+
         return reward
 
     def update_state(self, ai_list, opp_list):
@@ -236,13 +241,14 @@ class MeleeBot:
         return state
 
     def update_rewardstate(self, ai_list, opp_list):
-        state = np.zeros(6)
+        state = np.zeros(7)
         state[0] = ai_list[2]                            # percent
         state[1] = ai_list[3]                            # stock
         state[2] = self.discretize_position(ai_list[0])  # Discretized x pos
         state[3] = opp_list[2]
         state[4] = opp_list[3]
         state[5] = self.discretize_position(opp_list[0])
+        state[6] = self.action_to_number(ai_list[5])
         return state
 
     # Skal vi gjøre det samme her KP som du gjorde med discretize_distance?
@@ -264,20 +270,13 @@ class MeleeBot:
         return 10 + sqdist * sigdist
 
     def state_to_action_name(self, action):
-        if action == 0:
-            return "standing still"
-        if action == 1:
-            return "kicking left"
-        if action == 2:
-            return "kicking right"
-        if action == 3:
-            return "shielding"
-        return "doing something weird"
+        return "doing something weird"  # needs rework, maybe not necessary
 
     def action_to_number(self, action_value):
         en = melee.enums.Action
         action = en(action_value)
-        if action in [en.DEAD_DOWN, en.ON_HALO_DESCENT, en.ENTRY, en.ENTRY_START, en.ENTRY_END]:
+        if action in [en.DEAD_DOWN, en.ON_HALO_DESCENT, en.ON_HALO_WAIT, en.ENTRY,
+                      en.ENTRY_START, en.ENTRY_END, en.UNKNOWN_ANIMATION]:
             return 0
         if action in [en.STANDING, en.WALK_SLOW, en.TURNING]:
             return 1
@@ -301,45 +300,49 @@ class MeleeBot:
             return 10
         if action == en.FTILT_MID:
             return 11
-        if action == en.FSMASH_MID:
+        if action == en.DOWNTILT:
             return 12
-        if action == en.DOWNSMASH:
+        if action == en.FSMASH_MID:
             return 13
-        if action in [en.NAIR, en.FAIR, en.DAIR]:  # bare ok så lenge de egentlig ikke skal hoppe
+        if action == en.DOWNSMASH:
             return 14
-        if action in [en.NAIR_LANDING, en.FAIR_LANDING]:
+        if action in [en.NAIR, en.FAIR, en.DAIR, en.BAIR]:  # bare ok så lenge de egentlig ikke skal hoppe
             return 15
-        if action in [en.TECH_MISS_UP, en.NEUTRAL_GETUP]:
+        if action in [en.NAIR_LANDING, en.FAIR_LANDING, en.BAIR_LANDING, en.DAIR_LANDING]:
             return 16
-        if action in [en.GROUND_ATTACK_UP, en.DAMAGE_GROUND]:
+        if action in [en.TECH_MISS_UP, en.NEUTRAL_GETUP, en.TECH_MISS_DOWN]:
             return 17
-        if en.GRAB.value <= action.value <= en.GRAB_BREAK.value:
+        if action in [en.GROUND_ATTACK_UP, en.DAMAGE_GROUND, en.GETUP_ATTACK]:
             return 18
-        if en.GRAB_PULL.value <= action.value <= en.GRABBED.value:
+        if en.GRAB.value <= action.value <= en.GRAB_BREAK.value:
             return 19
-        if action == en.THROWN_FORWARD:
+        if en.GRAB_PULLING_HIGH.value <= action.value <= en.GRAB_ESCAPE.value:
             return 20
-        if action == en.THROWN_BACK:
+        if action == en.THROWN_FORWARD:
             return 21
-        if action == en.THROWN_DOWN:
+        if action == en.THROWN_BACK:
             return 22
-        if action == en.ROLL_FORWARD:
+        if action == en.THROWN_DOWN:
             return 23
-        if action == en.ROLL_BACKWARD:
+        if action == en.ROLL_FORWARD:
             return 24
-        if action == en.SPOTDODGE:
+        if action == en.ROLL_BACKWARD:
             return 25
-        if action == en.AIRDODGE:
+        if action == en.SPOTDODGE:
             return 26
-        if en.THROW_FORWARD.value <= action.value <= en.THROW_DOWN.value:
+        if action == en.AIRDODGE:
             return 27
+        if en.THROW_FORWARD.value <= action.value <= en.THROW_DOWN.value:
+            return 28
+        if en.SLIDING_OFF_EDGE.value <= action.value <= en.EDGE_JUMP_2_QUICK.value:
+            return 29
         return -1
 
     def reset(self):
         self.state = np.zeros(5)
         self.state2 = np.zeros(5)
-        self.rewardstate = np.zeros(6)
-        self.rewardstate2 = np.zeros(6)
+        self.rewardstate = np.zeros(7)
+        self.rewardstate2 = np.zeros(7)
         return [self.state, self.state2]
 
     def check_port(self, value):

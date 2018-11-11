@@ -109,6 +109,10 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# the game disc image
 melee.iso
 
+# tables saved to file
+*.npy
+Stored_results/
 

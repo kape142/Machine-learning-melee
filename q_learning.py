@@ -4,10 +4,11 @@ import random
 from meleebot import MeleeBot
 import time
 import melee
+import sys
 
 
 class Qlearning:
-    def __init__(self, alpha, epsilon, environment):
+    def __init__(self, alpha, epsilon, environment, save_qtable=True):
         self.env = environment
 
         # Initialize the q table with shape = shape_q_table
@@ -19,6 +20,7 @@ class Qlearning:
         print("Shape of the Q-table:", self.q_table.shape)
         print("Datatype of Q-table:", self.q_table.dtype)
         self.get_stored_size_q_table(shape_q_table)
+        print()
 
         # Learning rate aparameters
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
@@ -40,6 +42,9 @@ class Qlearning:
         self.store_cumulative_reward = [[0], [0]]
         self.animations = []
 
+        #options
+        self.save_qtable = save_qtable
+
     def get_stored_size_q_table(self, shape_q_table):
         # Calculating the expected storage size of q_table
         stored_size = 1
@@ -57,18 +62,20 @@ class Qlearning:
             for idx, states in enumerate(state):
                 actions["action{0}".format(idx + 1)] = np.ndarray.argmax(self.q_table[states])
                 # if actions["action{0}".format(idx+1)] != 0:
-                #     print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward, "Action: ", actions["action{0}".format(idx+1)])
+                #       print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward,
+                #             "Action: ", actions["action{0}".format(idx+1)])
         return actions
 
-    def learn(self, second):
+    def learn(self, seconds):
         state = self.env.reset()
         epochs = 0
-        frames = second*60
+        frames = seconds * 60
+        done = False
 
-        #done = False
         actions = {"action1": 0, "action2": 0}
         print("Epsilon: ", self.epsilon)
         print("Alpha: ", self.alpha)
+        print()
         # print(self.q_table)
 
         # Want the states on the from [(x,y,z),(x,y,z)] with integeres
@@ -76,13 +83,15 @@ class Qlearning:
             state[idx] = tuple(states.astype(int))
 
         # Wait until game have started before updating the Q_table
-        animations = (323,323)
-        while ( animations[0] in [322, 323, 324] or
-                animations[1] in [322, 323, 324] ):
+        while not self.env.in_game:
+            self.env.step(actions["action1"], actions["action2"])
+
+        animations = (323, 323)
+        while animations[0] in [322, 323, 324] or animations[1] in [322, 323, 324]:
             _, _, _, animations = self.env.step(actions["action1"], actions["action2"])
 
         # while not done:   # Game continues until game over (include done false before and after while loop)
-        for epoch in range(1,frames+1):
+        for epoch in range(1, frames+1):
             # Get random action or action from Q table.
             actions = self.get_action(actions, state)
 
@@ -92,7 +101,7 @@ class Qlearning:
             for anim in animations:
                 if not anim in self.animations:
                     self.animations.append(anim)
-            # Want the next_state on the from [(x,y,z),(x,y,z)] with integeres
+            # Want the next_state on the from [(x,y,z),(x,y,z)] with integers
             for idx, states in enumerate(next_state):
                 next_state[idx] = tuple(states.astype(int))
                 next_max = np.max(self.q_table[next_state[idx]])
@@ -108,29 +117,59 @@ class Qlearning:
 
             state = next_state
             epochs += 1
-            if epochs %1000 == 0:
-                print("Epochs: ", epochs)
-                print("Bot1's State: ", state[0], "Reward", self.total_reward[0])
-                print("Bot2's State: ", state[1], "Reward", self.total_reward[1])
-                bot.done = True
+            if epochs % np.floor(frames/4) == 0:
+                self.print_epoch_state(epochs, state)
 
-        #done = False
+
+        self.env.done = True
+        while not done:
+            _, _, done, _ = self.env.step(0, 0)
+        # done = False
         self.animations.sort()
+        unused_animations = []
         for anim in self.animations:
             if bot.action_to_number(anim) < 0:
+                unused_animations.append(anim)
+        if len(unused_animations) > 0:
+            print("WARNING: These animations are not taken into consideration in the observation space:")
+            for anim in unused_animations:
                 print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
+            print()
 
         # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
         self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode))
         self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*(episode))
 
         # Lagrer Q_tabellen og rewards
-        np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
-        np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
-        #print("Datatype of Q-table after learning:", self.q_table.dtype)
-        print("Q-table and cumalitive reward saved to folder 'Stored_results' with postfix '"+stored_filename+".npy'")
+        if self.save_qtable:
+            np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
+            np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
+            # print("Datatype of Q-table after learning:", self.q_table.dtype)
+            print("Q-table and cumalitive reward saved to folder 'Stored_results' with postfix '"+stored_filename+".npy'")
 
         return self.epsilon, self.alpha
+
+    def print_epoch_state(self, epochs, state):
+        print("Epochs: ", epochs)
+        print("Bot1's State: ", state[0], "Reward", self.total_reward[0])
+        print("Bot2's State: ", state[1], "Reward", self.total_reward[1])
+        print()
+
+    def reset(self):
+        self.total_reward = [0, 0]
+        self.store_cumulative_reward = [[0], [0]]
+
+
+def redirect_print(stored_filename):
+    orig_stdout = sys.stdout
+    f = open('Stored_results/console_{0}.txt'.format(stored_filename), 'w')
+    sys.stdout = f
+    return f, orig_stdout
+
+
+def close_print(out, f):
+    sys.stdout = out
+    f.close()
 
 
 if __name__ == '__main__':
@@ -138,63 +177,36 @@ if __name__ == '__main__':
     epsilon = 0.99                  # Ratio of random actions
     alpha = 0.2                     # Learning rate
     seconds = 20                    # Seconds in game before termination
-    load_old_qtable = True          # Load previous model and train upon this?
+    load_old_qtable = False         # Load previous model and train upon this?
+    save_new_qtable = False         # Save newly generated model for future use?
+    print_to_file = False           # Print to file instead of console?
     stored_filename = 'model-v1'    # Postfix of the stored model after game end.
+    if print_to_file:
+        f, out = redirect_print(stored_filename)
     try:
         bot = MeleeBot(iso_path="melee.iso", player_control=False)
         bot.reset()
 
-        ql = Qlearning(alpha, epsilon, bot)
+        ql = Qlearning(alpha, epsilon, bot, save_new_qtable)
 
         if load_old_qtable:
-            ql.q_table = np.load('q_table_v6_augm_stateNactions.npy').astype(dtype=np.float32)
+            ql.q_table = np.load('Stored_results/Q_table_' + stored_filename + '.npy').astype(dtype=np.float32)
             # print("Type of loaded q_table: ", ql.q_table.dtype)
 
-        for episode in range(10000):
-            while not bot.in_game:
-                action = bot.action_space.sample()
-                action2 = bot.action_space.sample()
-                obv, reward, done, info = bot.step(action, action2)
-            print("============ EPISODE: {0} ============".format(episode + 1))
-            # change to your path to melee v1.02 NTSC ISO
-            # print("Action space: ", bot.action_space.n)
-            # print("Observation space: ", bot.observation_space.shape)
-            # print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")
-            epsilon, alpha = ql.learn()
-            print("\n============ EPISODE END ============\n\n")
-
-
-
+        for episode in range(1, 10001):
+            print("============ EPISODE: {0} ============\n".format(episode))
+            epsilon, alpha = ql.learn(seconds)
+            ql.reset()
+            print("============ EPISODE END ============\n\n")
 
     except Exception as e:
-        print(e)
         bot.dolphin.terminate()
         time.sleep(0.5)
         bot.dolphin.terminate()
-        raise e
+        if print_to_file:
+            close_print(out, f)
+        if not str(e) == "Dolphin is not responding":
+            raise e
+        else:
+            print("Dolphin is not responding, closing down...")
 
-'''        for episode in range(1, 10001):
-            print("============ EPISODE: {0} ============".format(episode))
-            bot = MeleeBot(iso_path="melee.iso", player_control=False)  # change to your path to melee v1.02 NTSC ISO
-            #print("Action space: ", bot.action_space.n)
-            #print("Observation space: ", bot.observation_space.shape)
-            #print("Epoch, reward og actions blir bare printet hvis action ut fra Q_table er noe annet enn 0! Vill skje mer flittig senere ut i treningen")
-            ql = Qlearning(alpha, epsilon, bot)
-
-            if load_old_qtable:
-                ql.q_table = np.load('Stored_results/Q_table_'+stored_filename+'.npy').astype(dtype=np.float32)
-                #print("Type of loaded q_table: ", ql.q_table.dtype)
-            bot.reset()
-            while bot.CheckGameStatus == False:
-                action = bot.action_space.sample()
-                action2 = bot.action_space.sample()
-                obv, reward, done, info = bot.step(action, action2)
-            epsilon, alpha = ql.learn(seconds)
-
-            time.sleep(1)
-            bot.dolphin.terminate()
-            time.sleep(0.5)
-            bot.dolphin.terminate()
-            time.sleep(1)
-            print("\n============ EPISODE END ============\n\n")
-            '''
