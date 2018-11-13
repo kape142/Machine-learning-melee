@@ -24,22 +24,22 @@ class Qlearning:
 
         # Learning rate aparameters
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
-        self.max_alpha = 0.2
-        self.min_alpha = 0.001
-        self.decay_rate_alpha = 0.01
+        self.max_alpha = alpha
+        self.min_alpha = 0.0003
+        self.decay_rate_alpha = 0.0003      # Denne burde vel være veldig lav for at den skal kunne lære lenge?
 
         # Epsilon parameter
         self.epsilon = epsilon              # Synker, ca 1 til 0
-        self.max_epsilon = 0.99
+        self.max_epsilon = epsilon
         self.min_epsilon = 0.001
-        self.decay_rate = 0.01
+        self.decay_rate = 0.001
 
         # Gamma - discount rate
         self.gamma = 0.9  # hold konstant, hvor hardt du skal backtrace ting
 
         # Store the total reward and the cumalitive reward
         self.total_reward = [0, 0]
-        self.store_cumulative_reward = [[0], [0]]
+        self.store_cumulative_reward = [[0],[0]]
         self.animations = []
 
         #options
@@ -112,7 +112,6 @@ class Qlearning:
                     self.alpha * (reward[idx] + self.gamma * next_max - self.q_table[state_action]))
 
                 # Save reward for each frame
-                self.store_cumulative_reward[idx].append(self.total_reward[idx] + reward[idx])
                 self.total_reward[idx] += reward[idx]
 
             state = next_state
@@ -142,10 +141,14 @@ class Qlearning:
 
         # Lagrer Q_tabellen og rewards
         if self.save_qtable:
+            self.store_cumulative_reward[0].append(self.total_reward[0])
+            self.store_cumulative_reward[1].append(self.total_reward[1])
+
             np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
             np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
             # print("Datatype of Q-table after learning:", self.q_table.dtype)
-            print("Q-table and cumalitive reward saved to folder 'Stored_results' with postfix '"+stored_filename+".npy'")
+            print("Q-table and cumulative reward saved to folder 'Stored_results' with postfix '{0}.npy'\n"
+                  .format(stored_filename))
 
         return self.epsilon, self.alpha
 
@@ -157,7 +160,6 @@ class Qlearning:
 
     def reset(self):
         self.total_reward = [0, 0]
-        self.store_cumulative_reward = [[0], [0]]
 
 
 def redirect_print(stored_filename):
@@ -172,15 +174,23 @@ def close_print(out, f):
     f.close()
 
 
+def exit(total_episodes, start_time, out=None, f=None):
+    print("Episodes per hour: {0}\n".format(total_episodes/((time.time()-start_time)/3600)))
+    if print_to_file:
+        close_print(out, f)
+
+
 if __name__ == '__main__':
-    bot = None
+    bot, out, f = None, None, None
     epsilon = 0.99                  # Ratio of random actions
     alpha = 0.2                     # Learning rate
     seconds = 20                    # Seconds in game before termination
-    load_old_qtable = False         # Load previous model and train upon this?
-    save_new_qtable = False         # Save newly generated model for future use?
-    print_to_file = False           # Print to file instead of console?
-    stored_filename = 'model-v1'    # Postfix of the stored model after game end.
+    load_old_qtable = True         # Load previous model and train upon this?
+    save_new_qtable = True          # Save newly generated model for future use?
+    print_to_file = True           # Print to file instead of console?
+    stored_filename = 'nov13'       # Postfix of the stored model after game end.
+    start_time = time.time()
+    episode = 0
     if print_to_file:
         f, out = redirect_print(stored_filename)
     try:
@@ -193,20 +203,26 @@ if __name__ == '__main__':
             ql.q_table = np.load('Stored_results/Q_table_' + stored_filename + '.npy').astype(dtype=np.float32)
             # print("Type of loaded q_table: ", ql.q_table.dtype)
 
-        for episode in range(1, 10001):
+        for episode in range(1, 1001):
             print("============ EPISODE: {0} ============\n".format(episode))
+            print("Episoden startet {0}\n".format(str(time.strftime("%d. %B kl. %H:%M:%S "))))
+            if print_to_file:
+                out.write("\r{0} episodes finished".format(episode-1))
+                out.flush()
             epsilon, alpha = ql.learn(seconds)
             ql.reset()
             print("============ EPISODE END ============\n\n")
-
+        exit(1000, start_time, out, f)
+        bot.dolphin.terminate()
+        time.sleep(0.5)
+        bot.dolphin.terminate()
     except Exception as e:
         bot.dolphin.terminate()
         time.sleep(0.5)
         bot.dolphin.terminate()
-        if print_to_file:
-            close_print(out, f)
+        exit(episode-1, start_time, out, f)
         if not str(e) == "Dolphin is not responding":
             raise e
         else:
-            print("Dolphin is not responding, closing down...")
+            print("\nDolphin is not responding, closing down...")
 

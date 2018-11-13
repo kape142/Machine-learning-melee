@@ -11,5 +11,5 @@ setup(
   keywords = ['dolphin', 'AI', 'video games'],
   classifiers = [],
   license = "GPLv3",
-  include_package_data=True, install_requires=['gym']
+  include_package_data=True, install_requires=['gym', 'matplotlib', 'numpy']
 )
