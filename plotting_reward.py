@@ -17,9 +17,13 @@ import matplotlib.pyplot as plt
 
 
 def reduce_noise(list, elements_per_point=10):
+    newlist = []
     for i in range(len(list)):
-        list[i] = np.mean(list[max(0, i-elements_per_point):min(len(list), i+elements_per_point)])
-    return list
+        low = max(0, i-elements_per_point)
+        high = min(len(list), i+elements_per_point)
+        # print(low, high, len(list[low:high]))
+        newlist.append(np.mean(list[low:high]))
+    return newlist
 
 
 def average(list, elements_per_point=10):
@@ -29,14 +33,21 @@ def average(list, elements_per_point=10):
     return avglist
 
 
-reward = np.load('Stored_results/Rewards_nov13.npy')
+reward = np.load('Stored_results/Rewards_nov14.npy')
 
 plt.figure(1)
-plt.plot(average(reduce_noise(reward[0].tolist(), 100)), label="AI 1")
-plt.plot(average(reduce_noise(reward[1].tolist(), 100)), label="AI 2")
+noise_elements_per_point = 1
+avg_elements_per_point = 1
+
+print(len(reward[0].tolist()))
+# plt.plot(reduce_noise(reward[1].tolist(), noise_elements_per_point))
+for i in range(2):
+    graph = average(reduce_noise(reward[i].tolist(), noise_elements_per_point), avg_elements_per_point)
+    plt.plot(np.linspace(0, len(reward[i].tolist()), len(graph)), graph, label="AI {0}".format(i))
+# plt.plot(average(reduce_noise(reward[1].tolist(), noise_elements_per_point), avg_elements_per_point), label="AI 2")
 plt.legend()
 plt.ylabel('Reward')
-plt.xlabel('Epoch')
+plt.xlabel('Episode')
 plt.show()
 
 

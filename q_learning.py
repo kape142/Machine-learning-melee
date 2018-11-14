@@ -8,42 +8,44 @@ import sys
 
 
 class Qlearning:
-    def __init__(self, alpha, epsilon, environment, save_qtable=True):
+    def __init__(self, alpha, epsilon, environment, save_qtable=True, seconds_per_episode=20):
         self.env = environment
 
         # Initialize the q table with shape = shape_q_table
-        shape_q_table = (self.env.observation_space.high - self.env.observation_space.low + 1).tolist()
-        shape_q_table.append(self.env.action_space.n)
-        self.q_table = np.zeros(shape_q_table, dtype=np.float32)
-
-        # Print information about th Q table
-        print("Shape of the Q-table:", self.q_table.shape)
-        print("Datatype of Q-table:", self.q_table.dtype)
-        self.get_stored_size_q_table(shape_q_table)
-        print()
+        self.shape_q_table = (self.env.observation_space.high - self.env.observation_space.low + 1).tolist()
+        self.shape_q_table.append(self.env.action_space.n)
+        self.q_table = np.zeros(self.shape_q_table, dtype=np.float32)
 
         # Learning rate aparameters
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
         self.max_alpha = alpha
-        self.min_alpha = 0.0003
-        self.decay_rate_alpha = 0.0003      # Denne burde vel være veldig lav for at den skal kunne lære lenge?
+        self.min_alpha = 0
+        self.decay_rate_alpha = 0.0002
 
         # Epsilon parameter
         self.epsilon = epsilon              # Synker, ca 1 til 0
         self.max_epsilon = epsilon
-        self.min_epsilon = 0.001
-        self.decay_rate = 0.001
+        self.min_epsilon = 0.05
+        self.decay_rate = 0.0007
 
         # Gamma - discount rate
         self.gamma = 0.9  # hold konstant, hvor hardt du skal backtrace ting
 
         # Store the total reward and the cumalitive reward
         self.total_reward = [0, 0]
-        self.store_cumulative_reward = [[0],[0]]
+        self.store_cumulative_reward = [[], []]
         self.animations = []
+        self.episode_print = ""
 
         #options
         self.save_qtable = save_qtable
+        self.seconds_per_episode = seconds_per_episode
+
+    def print_data(self):
+        print("Shape of the Q-table:", self.q_table.shape)
+        print("Datatype of Q-table:", self.q_table.dtype)
+        self.get_stored_size_q_table(self.shape_q_table)
+        print()
 
     def get_stored_size_q_table(self, shape_q_table):
         # Calculating the expected storage size of q_table
@@ -66,16 +68,19 @@ class Qlearning:
                 #             "Action: ", actions["action{0}".format(idx+1)])
         return actions
 
-    def learn(self, seconds):
+    def learn(self, episode_number):
         state = self.env.reset()
         epochs = 0
-        frames = seconds * 60
+        frames = self.seconds_per_episode * 60
         done = False
 
+        # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
+        self.epsilon = self.calculate_epsilon(episode_number)
+        self.alpha = self.calculate_alpha(episode_number)
+
+        self.episode_print += "Epsilon: {0}\nAlpha: {1}\n\n".format(epsilon, alpha)
         actions = {"action1": 0, "action2": 0}
-        print("Epsilon: ", self.epsilon)
-        print("Alpha: ", self.alpha)
-        print()
+
         # print(self.q_table)
 
         # Want the states on the from [(x,y,z),(x,y,z)] with integeres
@@ -117,8 +122,7 @@ class Qlearning:
             state = next_state
             epochs += 1
             if epochs % np.floor(frames/4) == 0:
-                self.print_epoch_state(epochs, state)
-
+                self.episode_print += self.print_epoch_state(epochs, state)
 
         self.env.done = True
         while not done:
@@ -130,41 +134,45 @@ class Qlearning:
             if bot.action_to_number(anim) < 0:
                 unused_animations.append(anim)
         if len(unused_animations) > 0:
-            print("WARNING: These animations are not taken into consideration in the observation space:")
+            self.episode_print += "WARNING: These animations are not taken into consideration in the observation space:\n"
             for anim in unused_animations:
-                print("%s: %0.f" % (melee.enums.Action(anim).name, anim))
-            print()
-
-        # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
-        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*(episode))
-        self.alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha*(episode))
+                self.episode_print += "%s: %0.f\n" % (melee.enums.Action(anim).name, anim)
+            self.episode_print += "\n"
 
         # Lagrer Q_tabellen og rewards
         if self.save_qtable:
             self.store_cumulative_reward[0].append(self.total_reward[0])
             self.store_cumulative_reward[1].append(self.total_reward[1])
 
+            save_start = time.time()
             np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
             np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
             # print("Datatype of Q-table after learning:", self.q_table.dtype)
-            print("Q-table and cumulative reward saved to folder 'Stored_results' with postfix '{0}.npy'\n"
-                  .format(stored_filename))
-
+            save_time = time.time()-save_start
+            self.episode_print += "Q-table and cumulative reward saved to folder 'Stored_results' with postfix '{0}.npy'"\
+                             " in {1:.3f} seconds\n".format(stored_filename, save_time)
         return self.epsilon, self.alpha
 
     def print_epoch_state(self, epochs, state):
-        print("Epochs: ", epochs)
-        print("Bot1's State: ", state[0], "Reward", self.total_reward[0])
-        print("Bot2's State: ", state[1], "Reward", self.total_reward[1])
-        print()
+        string = "Epochs: {0}\n".format(epochs)
+        for i in range(2):
+            string += "Bot {0}'s State: {1}, Reward {2}\n".format(i,state[i],self.total_reward[i])
+        return string+"\n"
+
+    def calculate_epsilon(self, episode_number):
+        return self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate*episode_number)
+
+    def calculate_alpha(self, episode_number):
+        return self.min_alpha + (self.max_alpha - self.min_alpha) * np.exp(-self.decay_rate_alpha * episode_number)
 
     def reset(self):
         self.total_reward = [0, 0]
+        self.episode_print = ""
 
 
 def redirect_print(stored_filename):
     orig_stdout = sys.stdout
-    f = open('Stored_results/console_{0}.txt'.format(stored_filename), 'w')
+    f = open('Stored_results/console_{0}.txt'.format(stored_filename), 'a')
     sys.stdout = f
     return f, orig_stdout
 
@@ -175,7 +183,11 @@ def close_print(out, f):
 
 
 def exit(total_episodes, start_time, out=None, f=None):
-    print("Episodes per hour: {0}\n".format(total_episodes/((time.time()-start_time)/3600)))
+    if total_episodes > 0:
+        print("Episodes per hour: {0}\n".format(total_episodes/((time.time()-start_time)/3600)))
+    else:
+        print("Something went wrong\n")
+    print("Shutting down...\n")
     if print_to_file:
         close_print(out, f)
 
@@ -184,35 +196,50 @@ if __name__ == '__main__':
     bot, out, f = None, None, None
     epsilon = 0.99                  # Ratio of random actions
     alpha = 0.2                     # Learning rate
-    seconds = 20                    # Seconds in game before termination
-    load_old_qtable = True         # Load previous model and train upon this?
-    save_new_qtable = True          # Save newly generated model for future use?
-    print_to_file = True           # Print to file instead of console?
-    stored_filename = 'nov13'       # Postfix of the stored model after game end.
+    seconds_per_episode = 20        # Seconds in game before termination
+    load_old_data = True            # Load previous model and train upon this?
+    save_new_data = True            # Save newly generated model for future use?
+    print_to_file = True            # Print to file instead of console?
+    stored_filename = 'nov14'       # Postfix of the stored model after game end.
     start_time = time.time()
+    episodes_to_run = 10_000
+    start_episode = 0
     episode = 0
     if print_to_file:
         f, out = redirect_print(stored_filename)
     try:
         bot = MeleeBot(iso_path="melee.iso", player_control=False)
         bot.reset()
-
-        ql = Qlearning(alpha, epsilon, bot, save_new_qtable)
-
-        if load_old_qtable:
-            ql.q_table = np.load('Stored_results/Q_table_' + stored_filename + '.npy').astype(dtype=np.float32)
-            # print("Type of loaded q_table: ", ql.q_table.dtype)
-
-        for episode in range(1, 1001):
-            print("============ EPISODE: {0} ============\n".format(episode))
-            print("Episoden startet {0}\n".format(str(time.strftime("%d. %B kl. %H:%M:%S "))))
+        print("Starting up...\n")
+        ql = Qlearning(alpha, epsilon, bot, save_new_data, seconds_per_episode, )
+        if load_old_data:
+            try:
+                ql.q_table = np.load('Stored_results/Q_table_{0}.npy'.format(stored_filename)).astype(dtype=np.float32)
+            except FileNotFoundError:
+                pass
+            try:
+                ql.store_cumulative_reward = np.load('Stored_results/Rewards_{0}.npy'.format(stored_filename)).tolist()
+            except FileNotFoundError:
+                pass
+        start_episode = len(ql.store_cumulative_reward[0])
+        if start_episode == 0:
+            ql.print_data()
+        if start_episode >= episodes_to_run:
+            raise Exception("The bot you are starting has already finished training")
+        for episode in range(start_episode, episodes_to_run):
+            print_data = "============ EPISODE: {0} ============\n\n".format(episode+1)
+            print_data += "Episode started {0}\n".format(str(time.strftime("%d.%b kl. %H:%M:%S ")))
             if print_to_file:
-                out.write("\r{0} episodes finished".format(episode-1))
+                out.write("\r{0} episodes finished".format(episode))
                 out.flush()
-            epsilon, alpha = ql.learn(seconds)
+            ql.learn(episode)
+            print_data +=ql.episode_print
             ql.reset()
-            print("============ EPISODE END ============\n\n")
-        exit(1000, start_time, out, f)
+            print(print_data+"\n============ EPISODE END ============\n\n")
+        if print_to_file:
+            out.write("All {0} episodes finished".format(episodes_to_run))
+            out.flush()
+        exit(episodes_to_run, start_time, out, f)
         bot.dolphin.terminate()
         time.sleep(0.5)
         bot.dolphin.terminate()
@@ -220,7 +247,7 @@ if __name__ == '__main__':
         bot.dolphin.terminate()
         time.sleep(0.5)
         bot.dolphin.terminate()
-        exit(episode-1, start_time, out, f)
+        exit(episode-start_episode, start_time, out, f)
         if not str(e) == "Dolphin is not responding":
             raise e
         else:

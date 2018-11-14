@@ -134,8 +134,8 @@ class MeleeBot:
 
         # "step" to the next frame
         self.gamestate.step()
-        if not self.starting and self.gamestate.processingtime * 1000 > 12:
-            print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.\n")
+        # if not self.starting and self.gamestate.processingtime * 1000 > 12:  # egentlig ikke nødvendig
+        # print("WARNING: Last frame took " + str(self.gamestate.processingtime * 1000) + "ms to process.\n")
         reward = 0
         reward2 = 0
         done = False
@@ -285,7 +285,8 @@ class MeleeBot:
         if action in [en.DEAD_DOWN, en.ON_HALO_DESCENT, en.ON_HALO_WAIT, en.ENTRY,
                       en.ENTRY_START, en.ENTRY_END, en.UNKNOWN_ANIMATION]:
             return 0
-        if action in [en.STANDING, en.WALK_SLOW, en.TURNING, en.EDGE_TEETERING, en.EDGE_TEETERING_START]:
+        if action in [en.STANDING, en.WALK_SLOW, en.TURNING, en.EDGE_TEETERING, en.EDGE_TEETERING_START,
+                      en.WALK_MIDDLE, en.WALK_FAST, en.RUNNING, en.TURNING_RUN, en.RUN_BRAKE]:
             return 1
         if en.DAMAGE_HIGH_1.value <= action.value <= en.DAMAGE_FLY_ROLL.value:
             return 2
@@ -317,7 +318,8 @@ class MeleeBot:
             return 15
         if action in [en.NAIR_LANDING, en.FAIR_LANDING, en.BAIR_LANDING, en.DAIR_LANDING]:
             return 16
-        if action in [en.TECH_MISS_UP, en.NEUTRAL_GETUP, en.TECH_MISS_DOWN, en.LYING_GROUND_DOWN, en.LYING_GROUND_UP]:
+        if action in [en.TECH_MISS_UP, en.NEUTRAL_GETUP, en.TECH_MISS_DOWN, en.LYING_GROUND_DOWN, en.LYING_GROUND_UP,
+                      en.BACKWARD_TECH, en.FORWARD_TECH, en.NEUTRAL_TECH]:
             return 17
         if action in [en.GROUND_ATTACK_UP, en.DAMAGE_GROUND, en.GETUP_ATTACK]:
             return 18
@@ -366,7 +368,7 @@ class MeleeBot:
             self.log.writelog()
             print("")  # because the ^C will be on the terminal
             print("Log file created: " + self.log.filename)
-        print("Shutting down cleanly...")
+        print("Shutting down...\n")
         if self.args.framerecord:
             self.framedata.saverecording()
         sys.exit(0)
