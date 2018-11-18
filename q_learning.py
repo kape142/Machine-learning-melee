@@ -78,7 +78,7 @@ class Qlearning:
         self.epsilon = self.calculate_epsilon(episode_number)
         self.alpha = self.calculate_alpha(episode_number)
 
-        self.episode_print += "Epsilon: {0}\nAlpha: {1}\n\n".format(epsilon, alpha)
+        self.episode_print += "Epsilon: {0}\nAlpha: {1}\n\n".format(self.epsilon, self.alpha)
         actions = {"action1": 0, "action2": 0}
 
         # print(self.q_table)

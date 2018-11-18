@@ -333,9 +333,9 @@ class MeleeBot:
             return 22
         if action == en.THROWN_DOWN:
             return 23
-        if action == en.ROLL_FORWARD:
+        if action in [en.ROLL_FORWARD, en.GROUND_ROLL_FORWARD_DOWN, en.GROUND_ROLL_FORWARD_UP]:
             return 24
-        if action == en.ROLL_BACKWARD:
+        if action in [en.ROLL_BACKWARD, en.GROUND_ROLL_BACKWARD_DOWN, en.GROUND_ROLL_BACKWARD_UP]:
             return 25
         if action == en.SPOTDODGE:
             return 26
@@ -344,7 +344,7 @@ class MeleeBot:
         if en.THROW_FORWARD.value <= action.value <= en.THROW_DOWN.value:
             return 28
         if en.SLIDING_OFF_EDGE.value <= action.value <= en.EDGE_JUMP_2_QUICK.value \
-                or action in [en.WALL_TECH, en.WALL_TECH_JUMP]:
+                or action in [en.WALL_TECH, en.WALL_TECH_JUMP, en.BOUNCE_WALL, en.BOUNCE_CEILING]:
             return 29
         return -1
 
