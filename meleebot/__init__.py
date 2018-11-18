@@ -211,23 +211,42 @@ class MeleeBot:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward(self.rewardstate, prevrewardstate)
+        reward += self.get_reward1(self.rewardstate, prevrewardstate)
         if not self.args.live:
-            reward2 += self.get_reward(self.rewardstate2, prevrewardstate2)
+            reward2 += self.get_reward2(self.rewardstate2, prevrewardstate2)
         info = "I am currently doing %s, which corresponds to action #%0.f, " \
                "my opponent is doing %s, which corresponds to action #%0.f, " \
                "and the relative distance to my opponent is %.0f" % \
                (melee.enums.Action(ai_list[5]).name, self.state[0],
                 melee.enums.Action(opp_list[5]).name, self.state[1],
                 self.state[2])
-        info = ai_list[5], opp_list[5]
+        info = ai_list[5], opp_list[5], ai_list[2], opp_list[2]
         return [self.state, self.state2], [reward, reward2], done, info
 
-    def get_reward(self, state, prevstate):
+    def get_reward1(self, state, prevstate):
         reward = -1/60  # ~ -1.0 each second
-        # reward -= max(state[0] - prevstate[0], 0)  # percent self
-        # reward -= (prevstate[1] - state[1]) * 10  # stock self
+        reward -= max(state[0] - prevstate[0], 0) * 1 # percent self
+        reward -= (prevstate[1] - state[1]) * 10  # stock self
         reward += max(state[3] - prevstate[3], 0) * 3  # percent opponent
+        # reward += (prevstate[4] - state[4]) * 50  # stock opponent
+
+        if self.action_to_number(state[6]) == 8:  # straff for å bruke looping attack, hindrer læring
+            reward -= 0.3
+        # if state[6] == 0xb5:  # reward for å beskytte seg mot et angrep med skjold
+            # reward += 1
+
+        # Dette virker litt spesifikt, burde kanskje diskutere med Jonathan
+        # if abs(state[2]) > 7 and abs(state[5]) <= 7:
+            # reward -= 0.005        # -0,3 each second self is at the edge
+        # if abs(state[5]) > 7 and abs(state[2]) <= 7:
+            # reward += 0.005        # 0,3 each second opponent is at the edge
+        return reward
+
+    def get_reward2(self, state, prevstate):
+        reward = -1/30  # ~ -2.0 each second
+        # reward -= max(state[0] - prevstate[0], 0)  # percent self
+        reward -= (prevstate[1] - state[1]) * 10  # stock self
+        reward += max(state[3] - prevstate[3], 0) * 6  # percent opponent
         # reward += (prevstate[4] - state[4]) * 50  # stock opponent
 
         if self.action_to_number(state[6]) == 8:  # straff for å bruke looping attack, hindrer læring

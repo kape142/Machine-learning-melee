@@ -14,7 +14,8 @@ class Qlearning:
         # Initialize the q table with shape = shape_q_table
         self.shape_q_table = (self.env.observation_space.high - self.env.observation_space.low + 1).tolist()
         self.shape_q_table.append(self.env.action_space.n)
-        self.q_table = np.zeros(self.shape_q_table, dtype=np.float32)
+        self.q_table1 = np.zeros(self.shape_q_table, dtype=np.float32)
+        self.q_table2 = np.zeros(self.shape_q_table, dtype=np.float32)
 
         # Learning rate aparameters
         self.alpha = alpha                  # Synker, fra ca 0.2 og når den er 0 er læringen ferdig
@@ -34,6 +35,7 @@ class Qlearning:
         # Store the total reward and the cumalitive reward
         self.total_reward = [0, 0]
         self.store_cumulative_reward = [[], []]
+        self.store_percentage_opponent = [[], []]
         self.animations = []
         self.episode_print = ""
 
@@ -42,8 +44,12 @@ class Qlearning:
         self.seconds_per_episode = seconds_per_episode
 
     def print_data(self):
-        print("Shape of the Q-table:", self.q_table.shape)
-        print("Datatype of Q-table:", self.q_table.dtype)
+        print("Shape of the Q-table1:", self.q_table1.shape)
+        print("Datatype of Q-table1:", self.q_table1.dtype)
+        self.get_stored_size_q_table(self.shape_q_table)
+        print()
+        print("Shape of the Q-table2:", self.q_table2.shape)
+        print("Datatype of Q-table2:", self.q_table2.dtype)
         self.get_stored_size_q_table(self.shape_q_table)
         print()
 
@@ -61,22 +67,21 @@ class Qlearning:
             for i in range(len(actions)):
                 actions["action{0}".format(i + 1)] = self.env.action_space.sample()
         else:
-            for idx, states in enumerate(state):
-                actions["action{0}".format(idx + 1)] = np.ndarray.argmax(self.q_table[states])
-                # if actions["action{0}".format(idx+1)] != 0:
-                #       print("Bot {0}: ".format(idx+1), "Epoch:", epochs,"Reward: ",reward,
-                #             "Action: ", actions["action{0}".format(idx+1)])
+            actions["action1"] = np.ndarray.argmax(self.q_table1[state[0]])
+            actions["action2"] = np.ndarray.argmax(self.q_table2[state[1]])
         return actions
 
     def learn(self, episode_number):
         state = self.env.reset()
         epochs = 0
+        previous_percentage = [0, 0]
+        current_percentage = [0, 0]
         frames = self.seconds_per_episode * 60
         done = False
 
         # Oppdaterer epsilon og alpha. Eksonensiell reduksjon.
-        self.epsilon = self.calculate_epsilon(episode_number)
-        self.alpha = self.calculate_alpha(episode_number)
+        # self.epsilon = self.calculate_epsilon(episode_number)
+        # self.alpha = self.calculate_alpha(episode_number)
 
         self.episode_print += "Epsilon: {0}\nAlpha: {1}\n\n".format(self.epsilon, self.alpha)
         actions = {"action1": 0, "action2": 0}
@@ -103,22 +108,33 @@ class Qlearning:
             # Get the next state and reward with current aciton
             next_state, reward, done, animations = self.env.step(actions["action1"], actions["action2"])
 
-            for anim in animations:
+            for anim in [animations[0], animations[1]]:
                 if not anim in self.animations:
                     self.animations.append(anim)
+
             # Want the next_state on the from [(x,y,z),(x,y,z)] with integers
-            for idx, states in enumerate(next_state):
-                next_state[idx] = tuple(states.astype(int))
-                next_max = np.max(self.q_table[next_state[idx]])
-                state_action = state[idx] + (actions["action{0}".format(idx + 1)],)
+            next_state[0] = tuple(next_state[0].astype(int))
+            next_state[1] = tuple(next_state[1].astype(int))
+            next_max1 = np.max(self.q_table1[next_state[0]])
+            next_max2 = np.max(self.q_table2[next_state[1]])
+            state_action1 = state[0] + (actions["action1"],)
+            state_action2 = state[1] + (actions["action2"],)
 
-                # Update Q_table for both bots
-                self.q_table[state_action] = self.q_table[state_action] + np.float32(
-                    self.alpha * (reward[idx] + self.gamma * next_max - self.q_table[state_action]))
+            # Update Q_table for both bots
+            self.q_table1[state_action1] = self.q_table1[state_action1] + np.float32(
+                self.alpha * (reward[0] + self.gamma * next_max1 - self.q_table1[state_action1]))
+            self.q_table2[state_action2] = self.q_table2[state_action2] + np.float32(
+                self.alpha * (reward[1] + self.gamma * next_max2 - self.q_table2[state_action2]))
 
-                # Save reward for each frame
-                self.total_reward[idx] += reward[idx]
+            # Save reward for each frame
+            self.total_reward[0] += reward[0]
+            self.total_reward[1] += reward[1]
 
+            # Storing the percent of both AIs
+            for idx, percent_AI in enumerate([animations[2], animations[3]]):
+                current_percentage[idx] += max(percent_AI - previous_percentage[idx], 0)
+
+            previous_percentage = [animations[2], animations[3]]
             state = next_state
             epochs += 1
             if epochs % np.floor(frames/4) == 0:
@@ -141,12 +157,16 @@ class Qlearning:
 
         # Lagrer Q_tabellen og rewards
         if self.save_qtable:
-            self.store_cumulative_reward[0].append(self.total_reward[0])
-            self.store_cumulative_reward[1].append(self.total_reward[1])
+            for idx in range(2):
+                self.store_cumulative_reward[idx].append(self.total_reward[idx])
+                self.store_percentage_opponent[idx].append(current_percentage[idx])
+            print("current_percentage_opponent: ", current_percentage)
 
             save_start = time.time()
-            np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
+            np.save('Stored_results/Q_table1_'+stored_filename+'.npy', self.q_table1)
+            np.save('Stored_results/Q_table2_'+stored_filename+'.npy', self.q_table2)
             np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
+            np.save('Stored_results/Percentage_'+stored_filename+'.npy', self.store_percentage_opponent)
             # print("Datatype of Q-table after learning:", self.q_table.dtype)
             save_time = time.time()-save_start
             self.episode_print += "Q-table and cumulative reward saved to folder 'Stored_results' with postfix '{0}.npy'"\
@@ -194,13 +214,13 @@ def exit(total_episodes, start_time, out=None, f=None):
 
 if __name__ == '__main__':
     bot, out, f = None, None, None
-    epsilon = 0.99                  # Ratio of random actions
+    epsilon = 1.0                   # Ratio of random actions
     alpha = 0.2                     # Learning rate
     seconds_per_episode = 20        # Seconds in game before termination
     load_old_data = True            # Load previous model and train upon this?
     save_new_data = True            # Save newly generated model for future use?
     print_to_file = True            # Print to file instead of console?
-    stored_filename = 'nov14'       # Postfix of the stored model after game end.
+    stored_filename = 'nov18-2Qtables-Benchmark-v2'       # Postfix of the stored model after game end.
     start_time = time.time()
     episodes_to_run = 10_000
     start_episode = 0
@@ -214,11 +234,13 @@ if __name__ == '__main__':
         ql = Qlearning(alpha, epsilon, bot, save_new_data, seconds_per_episode, )
         if load_old_data:
             try:
-                ql.q_table = np.load('Stored_results/Q_table_{0}.npy'.format(stored_filename)).astype(dtype=np.float32)
+                ql.q_table1 = np.load('Stored_results/Q_table1_{0}.npy'.format(stored_filename)).astype(dtype=np.float32)
+                ql.q_table2 = np.load('Stored_results/Q_table2_{0}.npy'.format(stored_filename)).astype(dtype=np.float32)
             except FileNotFoundError:
                 pass
             try:
                 ql.store_cumulative_reward = np.load('Stored_results/Rewards_{0}.npy'.format(stored_filename)).tolist()
+                ql.store_percentage_opponent = np.load('Stored_results/Percentage_{0}.npy'.format(stored_filename)).tolist()
             except FileNotFoundError:
                 pass
         start_episode = len(ql.store_cumulative_reward[0])
@@ -252,4 +274,3 @@ if __name__ == '__main__':
             raise e
         else:
             print("\nDolphin is not responding, closing down...")
-
