@@ -160,7 +160,6 @@ class Qlearning:
             for idx in range(2):
                 self.store_cumulative_reward[idx].append(self.total_reward[idx])
                 self.store_percentage_opponent[idx].append(current_percentage[idx])
-            print("current_percentage_opponent: ", current_percentage)
 
             save_start = time.time()
             np.save('Stored_results/Q_table1_'+stored_filename+'.npy', self.q_table1)

@@ -34,6 +34,7 @@ class Qlearning:
         # Store the total reward and the cumalitive reward
         self.total_reward = [0, 0]
         self.store_cumulative_reward = [[], []]
+        self.store_percentage_opponent = [[], []]
         self.animations = []
         self.episode_print = ""
 
@@ -71,6 +72,8 @@ class Qlearning:
     def learn(self, episode_number):
         state = self.env.reset()
         epochs = 0
+        previous_percentage = [0, 0]
+        current_percentage = [0, 0]
         frames = self.seconds_per_episode * 60
         done = False
 
@@ -103,7 +106,7 @@ class Qlearning:
             # Get the next state and reward with current aciton
             next_state, reward, done, animations = self.env.step(actions["action1"], actions["action2"])
 
-            for anim in animations:
+            for anim in [animations[0], animations[1]]:
                 if not anim in self.animations:
                     self.animations.append(anim)
             # Want the next_state on the from [(x,y,z),(x,y,z)] with integers
@@ -118,6 +121,12 @@ class Qlearning:
 
                 # Save reward for each frame
                 self.total_reward[idx] += reward[idx]
+
+            # Storing the percent of both AIs
+            for idx, percent_AI in enumerate([animations[2], animations[3]]):
+                current_percentage[idx] += max(percent_AI - previous_percentage[idx], 0)
+
+            previous_percentage = [animations[2], animations[3]]
 
             state = next_state
             epochs += 1
@@ -141,12 +150,14 @@ class Qlearning:
 
         # Lagrer Q_tabellen og rewards
         if self.save_qtable:
-            self.store_cumulative_reward[0].append(self.total_reward[0])
-            self.store_cumulative_reward[1].append(self.total_reward[1])
+            for idx in range(2):
+                self.store_cumulative_reward[idx].append(self.total_reward[idx])
+                self.store_percentage_opponent[idx].append(current_percentage[idx])
 
             save_start = time.time()
             np.save('Stored_results/Q_table_'+stored_filename+'.npy', self.q_table)
             np.save('Stored_results/Rewards_'+stored_filename+'.npy', self.store_cumulative_reward)
+            np.save('Stored_results/Percentage_'+stored_filename+'.npy', self.store_percentage_opponent)
             # print("Datatype of Q-table after learning:", self.q_table.dtype)
             save_time = time.time()-save_start
             self.episode_print += "Q-table and cumulative reward saved to folder 'Stored_results' with postfix '{0}.npy'"\
@@ -200,7 +211,7 @@ if __name__ == '__main__':
     load_old_data = True            # Load previous model and train upon this?
     save_new_data = True            # Save newly generated model for future use?
     print_to_file = True            # Print to file instead of console?
-    stored_filename = 'nov14'       # Postfix of the stored model after game end.
+    stored_filename = 'nov123'       # Postfix of the stored model after game end.
     start_time = time.time()
     episodes_to_run = 10_000
     start_episode = 0
@@ -219,6 +230,7 @@ if __name__ == '__main__':
                 pass
             try:
                 ql.store_cumulative_reward = np.load('Stored_results/Rewards_{0}.npy'.format(stored_filename)).tolist()
+                ql.store_percentage_opponent = np.load('Stored_results/Percentage_{0}.npy'.format(stored_filename)).tolist()
             except FileNotFoundError:
                 pass
         start_episode = len(ql.store_cumulative_reward[0])
