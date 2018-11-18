@@ -38,7 +38,7 @@ stored_filename = 'nov18-2Qtables-Benchmark-v2'
 reward = np.load('Stored_results/Rewards_'+stored_filename+'.npy')
 
 plt.figure(1)
-noise_elements_per_point = 0
+noise_elements_per_point = 40
 avg_elements_per_point = 1
 
 print(len(reward[0].tolist()))
@@ -49,13 +49,13 @@ for i in range(2):
 plt.legend()
 plt.ylabel('Reward')
 plt.xlabel('Episode')
-plt.show()
+#plt.show()
 
 
 reward = np.load('Stored_results/Percentage_'+stored_filename+'.npy')
 
 plt.figure(2)
-noise_elements_per_point = 0
+noise_elements_per_point = 40
 avg_elements_per_point = 1
 
 # plt.plot(reduce_noise(reward[1].tolist(), noise_elements_per_point))
