@@ -45,3 +45,13 @@ sudo make install
 4) Install via pip: (or by cloning this repo for the very latest) pip3 install melee
 
 5) Run example.py to verify that the installation was successful. Done with typing Python3 example.py in terminal.
+
+
+# Bug fix
+ Uneven vertex stryde:
+ 
+    - Show hidden files
+    - Go to path:"home/documents/.config"
+    - Delete dolphin-emu
+    - Go to path:"home/documents/.cache"
+    - Delete dolphin-emu
