@@ -211,7 +211,7 @@ class MeleeBot:
             self.log.logframe(self.gamestate)
             self.log.writeframe()
 
-        reward += self.get_reward1(self.rewardstate, prevrewardstate)
+        reward += self.get_reward2(self.rewardstate, prevrewardstate)
         if not self.args.live:
             reward2 += self.get_reward2(self.rewardstate2, prevrewardstate2)
         info = "I am currently doing %s, which corresponds to action #%0.f, " \
@@ -243,10 +243,10 @@ class MeleeBot:
         return reward
 
     def get_reward2(self, state, prevstate):
-        reward = -1/30  # ~ -2.0 each second
+        reward = -1/60  # ~ -1.0 each second
         # reward -= max(state[0] - prevstate[0], 0)  # percent self
-        reward -= (prevstate[1] - state[1]) * 10  # stock self
-        reward += max(state[3] - prevstate[3], 0) * 6  # percent opponent
+        # reward -= (prevstate[1] - state[1]) * 10  # stock self
+        reward += max(state[3] - prevstate[3], 0) * 3  # percent opponent
         # reward += (prevstate[4] - state[4]) * 50  # stock opponent
 
         if self.action_to_number(state[6]) == 8:  # straff for å bruke looping attack, hindrer læring

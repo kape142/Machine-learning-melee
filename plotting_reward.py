@@ -1,20 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# def discretize_position(position):
-#     sigdist = np.sign(position)
-#     if abs(position) > 100:
-#         discretized_position = 10*sigdist
-#     else:
-#         discretized_position = int(position/10)
-#     return discretized_position
-#
-# print(discretize_position(12412))
-# print(discretize_position(-23))
-# print(discretize_position(123))
-# print(discretize_position(-3656))
-# print(discretize_position(-123))
-
 
 def reduce_noise(list, elements_per_point=10):
     newlist = []
@@ -28,41 +14,63 @@ def reduce_noise(list, elements_per_point=10):
 
 def average(list, elements_per_point=10):
     avglist = []
-    for i in range(int(np.floor(len(list)/elements_per_point))):
+    for i in range(int(np.floor(len(list)/min(elements_per_point, len(list))))):
         avglist.append(np.mean(list[i*elements_per_point:(i+1)*elements_per_point]))
     return avglist
 
 
-stored_filename = 'nov18-2Qtables-Benchmark-v2'
+def show_all(stored_filename, noise_elements_per_point, avg_elements_per_point):
+    add_plot('Rewards', stored_filename, noise_elements_per_point, avg_elements_per_point, 1)
+    add_plot('Percentage', stored_filename, noise_elements_per_point, avg_elements_per_point, 2, True)
+    add_plot('Looping_kicks', stored_filename, noise_elements_per_point, avg_elements_per_point, 3)
 
-reward = np.load('Stored_results/Rewards_'+stored_filename+'.npy')
-
-plt.figure(1)
-noise_elements_per_point = 40
-avg_elements_per_point = 1
-
-print(len(reward[0].tolist()))
-# plt.plot(reduce_noise(reward[1].tolist(), noise_elements_per_point))
-for i in range(2):
-    graph = average(reduce_noise(reward[i].tolist(), noise_elements_per_point), avg_elements_per_point)
-    plt.plot(np.linspace(0, len(reward[i].tolist()), len(graph)), graph, label="AI {0}".format(i+1))
-plt.legend()
-plt.ylabel('Reward')
-plt.xlabel('Episode')
-#plt.show()
+    plt.show()
 
 
-reward = np.load('Stored_results/Percentage_'+stored_filename+'.npy')
+def add_plot(type, stored_filename, noise_elements_per_point, avg_elements_per_point, index=1, reverse=False):
+    try:
+        reward = np.load('Stored_results/{0}_{1}.npy'.format(type, stored_filename))
+    except FileNotFoundError:
+        print("No data found about '{0}'".format(type))
+        return
 
-plt.figure(2)
-noise_elements_per_point = 40
-avg_elements_per_point = 1
+    plt.figure(index)
+    loop = range(2) if not reverse else range(1, -1, -1)
+    for i in loop:
+        graph = average(reduce_noise(reward[i].tolist(), noise_elements_per_point), avg_elements_per_point)
+        positions = np.linspace(0, len(reward[i].tolist()), len(graph))
+        if len(graph) == 1:
+            positions = [0, len(reward[i].tolist())]
+            graph = [graph[0], graph[0]]
+        ai_number = (i + 1) if not reverse else (2 - i)
+        plt.plot(positions, graph, label="AI {0}".format(ai_number))
+    plt.legend()
+    # plt.ylim([0, 20])
+    plt.ylabel(type)
+    plt.xlabel('Episode')
 
-# plt.plot(reduce_noise(reward[1].tolist(), noise_elements_per_point))
-for i in range(2):
-    graph = average(reduce_noise(reward[i].tolist(), noise_elements_per_point), avg_elements_per_point)
-    plt.plot(np.linspace(0, len(reward[i].tolist()), len(graph)), graph, label="AI {0}".format(i+1))
-plt.legend()
-plt.ylabel('Percentage Opponent')
-plt.xlabel('Episode')
-plt.show()
+
+def add_scatterplot(type, stored_filename, avg_elements_per_point, index=1, reverse=False):
+    try:
+        reward = np.load('Stored_results/{0}_{1}.npy'.format(type, stored_filename))
+    except FileNotFoundError:
+        print("No data found about '{0}'".format(type))
+        return
+
+    plt.figure(index)
+    loop = range(2) if not reverse else range(1, -1, -1)
+    for i in loop:
+        graph = average(reward[i].tolist(),avg_elements_per_point)
+        positions = np.linspace(0, len(reward[i].tolist()), len(graph))
+        if len(graph) == 1:
+            positions = [0, len(reward[i].tolist())]
+            graph = [graph[0], graph[0]]
+
+        plt.scatter(positions, graph, label="AI {0}".format(i + 1))
+    plt.legend()
+    # plt.ylim([0, 20])
+    plt.ylabel(type)
+    plt.xlabel('Episode')
+
+
+show_all('nov2', 300, 5)
