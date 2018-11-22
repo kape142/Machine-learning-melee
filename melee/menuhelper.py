@@ -2,6 +2,7 @@
     cumbersome to do on your own."""
 from melee import enums
 import math
+import random
 
 """Choose a character from the character select menu
     Intended to be called each frame while in the character select menu
@@ -182,7 +183,7 @@ def choosestage(stage, gamestate, controller):
 """Spam the start button"""
 def skippostgame(controller):
     #Alternate pressing start and letting go
-    if controller.prev.button[enums.Button.BUTTON_START] == False:
+    if not controller.prev.button[enums.Button.BUTTON_START] and random.randint(1, 7) > 4:
         controller.press_button(enums.Button.BUTTON_START)
     else:
         controller.release_button(enums.Button.BUTTON_START)

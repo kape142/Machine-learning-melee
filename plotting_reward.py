@@ -73,4 +73,13 @@ def add_scatterplot(type, stored_filename, avg_elements_per_point, index=1, reve
     plt.xlabel('Episode')
 
 
-show_all('nov2', 300, 5)
+'''
+The value of noise_elements_per_point will be used to reduce the noisiness of the graph, by setting each element to be
+equal to the mean of the previous n elements + this element + the next n elements.
+
+The value of avg_elements_per_point will be used make each point an average of the n closest points, further increasing 
+readability of the graph. This will reduce the amount of points by a factor of n.
+'''
+
+if __name__ == '__main__':
+    show_all(stored_filename='18kv4', noise_elements_per_point=0, avg_elements_per_point=1)
